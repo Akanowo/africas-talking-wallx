@@ -5,6 +5,8 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+const PORT = process.env.PORT || 3000;
+
 app.post('/ussd', (req, res) => {
 	const { sessionId, serviceCode, phoneNumber, text } = req.body;
 
@@ -32,4 +34,8 @@ app.post('/ussd', (req, res) => {
 
 	res.setHeader('Content-Type', 'text/plain');
 	res.send(response);
+});
+
+app.listen(PORT, () => {
+	console.log(`App started on port ${PORT}`);
 });
