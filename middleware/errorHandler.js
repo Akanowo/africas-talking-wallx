@@ -1,5 +1,3 @@
-const ErrorResponse = require('../utils/errorResponse');
-
 const errorHandler = (err, req, res, next) => {
 	let error = { ...err };
 
@@ -8,15 +6,8 @@ const errorHandler = (err, req, res, next) => {
 	console.log(err.stack);
 	console.log(err.name);
 
-	if (err.name === 'CastError') {
-		const message = `Resource with id ${error.value} not found`;
-		error = new ErrorResponse(message, 404);
-	}
-
-	res.status(error.statusCode || 500).json({
-		success: false,
-		error: error.message || 'Server Error',
-	});
+	res.setHeader('Content-Type', 'text/plain');
+	res.status(error.statusCode || 500).send(error.message || 'An error occured');
 };
 
 module.exports = errorHandler;

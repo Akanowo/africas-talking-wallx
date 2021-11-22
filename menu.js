@@ -1,8 +1,16 @@
+const Session = require('./models/session');
 const utils = require('./utils');
+const API = require('./utils/api');
+
+const api = new API();
 
 class Menu {
 	constructor(phoneNumber) {
 		this.phoneNumber = phoneNumber;
+	}
+
+	authenticatedMenu(res) {
+		utils.sendResponse(res, `END To be implemented`);
 	}
 
 	registerMenu(res) {
@@ -14,9 +22,10 @@ class Menu {
 	 * @param {Array<string>} textArray
 	 * @returns
 	 */
-	loginMenu(textArray, res) {
+	async loginMenu(textArray, reqBody, res) {
 		console.log(textArray);
 		const count = textArray.length;
+		const { sessionId, phoneNumber } = reqBody;
 
 		if (count === 1) {
 			utils.sendResponse(res, `CON Enter your username`);
@@ -30,8 +39,25 @@ class Menu {
 				password: textArray[2],
 			};
 			console.log('Login Data: ', data);
+
+			const response = await api.login(data);
+
+			if (response.access && response.refresh) {
+				// update session
+				const updatedSession = await Session.findOneAndUpdate(
+					{ sessionId, phoneNumber },
+					{ accessToken: response.access, refreshToken: response.refresh },
+					{ runValidators: true, new: true }
+				);
+
+				if (updatedSession) {
+					this.authenticatedMenu(res);
+					return;
+				}
+			}
+
+			utils.sendResponse(res, `END ${response.detail}`);
 		}
-		utils.sendResponse(res, `END Login successful`);
 	}
 
 	middleware(text) {
@@ -47,7 +73,6 @@ class Menu {
 		let splitText = text.split('*');
 		while (splitText.find((x) => x === utils.GO_BACK)) {
 			// get index of go back string
-			console.log('Hello');
 			const goBackTextIndex = splitText.findIndex((x) => x === utils.GO_BACK);
 
 			// remove from array
