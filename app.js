@@ -43,8 +43,6 @@ app.post(
 
 			let response = '';
 
-			console.log('text: ', text);
-
 			if (text === '' && authentication) {
 				menu.authenticatedMenu(res);
 			} else if (text === '' && !authentication) {
@@ -52,8 +50,7 @@ app.post(
 				// handle login & registration
 				response = `CON Welcome to Wallx.
 		1. Register
-		2. Login
-		`;
+		2. Login`;
 				utils.sendResponse(res, response);
 			} else if (!authentication && text !== '') {
 				// text is not empty and user is not logged in
@@ -70,7 +67,23 @@ app.post(
 				}
 			} else {
 				// user is authenticated and string is not empty
-				menu.authenticatedMenu(res);
+				const textSplit = text.split('*');
+				switch (textSplit[0]) {
+					case '1':
+						menu.walletMenu(res);
+						break;
+					case '2':
+						menu.thriftSavingsMenu(res);
+						break;
+					case '3':
+						menu.raiseAFundMenu(res);
+						break;
+					case '4':
+						menu.reportIssueMeu(res);
+						break;
+					default:
+						utils.sendResponse(res, `END Invalid Choice. Please try again`);
+				}
 			}
 		}
 	)

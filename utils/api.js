@@ -23,7 +23,11 @@ class API {
 			loginResponse = await (await axios.post(url, data)).data;
 		} catch (error) {
 			console.log(error.response.data);
-			loginResponse = error.response.data;
+			if (error.response && error.response.data) {
+				loginResponse = error.response.data;
+			} else {
+				loginResponse = { detail: 'An error occured!' };
+			}
 		}
 
 		return loginResponse;

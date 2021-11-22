@@ -10,6 +10,28 @@ class Menu {
 	}
 
 	authenticatedMenu(res) {
+		const text = `CON Choose an option
+		1. Wallet
+		2. Thrift Savings
+		3. Raise a fund
+		4. Report an issue`;
+
+		utils.sendResponse(res, text);
+	}
+
+	walletMenu(res) {
+		utils.sendResponse(res, `END To be implemented`);
+	}
+
+	thriftSavingsMenu(res) {
+		utils.sendResponse(res, `END To be implemented`);
+	}
+
+	raiseAFundMenu(res) {
+		utils.sendResponse(res, `END To be implemented`);
+	}
+
+	reportIssueMeu(res) {
 		utils.sendResponse(res, `END To be implemented`);
 	}
 
@@ -23,7 +45,6 @@ class Menu {
 	 * @returns
 	 */
 	async loginMenu(textArray, reqBody, res) {
-		console.log(textArray);
 		const count = textArray.length;
 		const { sessionId, phoneNumber } = reqBody;
 
@@ -38,7 +59,6 @@ class Menu {
 				username: textArray[1],
 				password: textArray[2],
 			};
-			console.log('Login Data: ', data);
 
 			const response = await api.login(data);
 
@@ -51,8 +71,10 @@ class Menu {
 				);
 
 				if (updatedSession) {
-					this.authenticatedMenu(res);
+					utils.sendResponse(res, `CON 99. Go to main menu`);
 					return;
+				} else {
+					utils.sendResponse(res, `END An error occured! Please try again`);
 				}
 			}
 
@@ -91,12 +113,11 @@ class Menu {
 		let splitText = text.split('*');
 
 		// get index of go to main menu string
-		while (splitText.find((x) => x === utils.GO_TO_MAIN_MENU)) {
-			const mainMenuStringIndex = splitText.findIndex(
-				(x) => x === utils.GO_TO_MAIN_MENU
-			);
-			// remove from array and reassign into array
-			splitText = splitText.slice(0, mainMenuStringIndex);
+		for (let choice of splitText) {
+			if (choice === utils.GO_TO_MAIN_MENU) {
+				const choiceIndex = splitText.findIndex((x) => x === choice);
+				splitText.splice(0, choiceIndex + 1);
+			}
 		}
 		return splitText.join('*');
 	}
