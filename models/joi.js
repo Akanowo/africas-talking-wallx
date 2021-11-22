@@ -5,7 +5,7 @@ const requestSchema = Joi.object({
 	serviceCode: Joi.string().required(),
 	networkCode: Joi.string().required(),
 	phoneNumber: Joi.string().required(),
-	text: Joi.string().required(),
+	text: Joi.string().required().allow(''),
 });
 
 module.exports = {
