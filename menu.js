@@ -19,8 +19,107 @@ class Menu {
 		utils.sendResponse(res, text);
 	}
 
-	walletMenu(res) {
-		utils.sendResponse(res, `END To be implemented`);
+	walletMenu(req, res, textArray) {
+		const count = textArray.length;
+		if (count === 1) {
+			const text = `CON Choose an option
+			1. Transfer to Wallx
+			2. Transfer to Bank
+			3. Buy Airtime
+			4. Get Wallet Balance`;
+			utils.sendResponse(res, text);
+		} else {
+			if (textArray[1] === '1') {
+				this.collectTransferToWallxFields(req, res, textArray);
+			} else if (textArray[1] === '2') {
+				utils.sendResponse(res, `END To be implemented`);
+			} else if (textArray[1] === '3') {
+				this.collectBuyAirtimeFields(req, res, textArray);
+			} else if (textArray[1] === '4') {
+				utils.sendResponse(res, `END To be implemented`);
+			} else {
+				utils.sendResponse(res, `END Invalid Choice`);
+			}
+		}
+	}
+
+	async collectTransferToWallxFields(req, res, textArray) {
+		const count = textArray.length;
+		if (count === 2) {
+			utils.sendResponse(res, `CON Enter reciever wallet id`);
+		}
+
+		if (count === 3) {
+			utils.sendResponse(res, `CON Enter amount`);
+		}
+
+		if (count === 4) {
+			utils.sendResponse(res, `CON Enter wallet pin`);
+		}
+
+		if (count === 5) {
+			const data = {
+				userID: '128',
+				recieverwalletId: textArray[2],
+				amount: textArray[3],
+				walletpin: textArray[4],
+				description: '',
+				transactiontype: 'wallet',
+				commission: '50',
+				currency: 'NGN',
+			};
+
+			const response = await api.sendPostRequest(
+				data,
+				'/customertransaction/',
+				req.authentication
+			);
+			console.log(response);
+			if (response.status) {
+				utils.sendResponse(res, `END ${response.message}`);
+				// TODO: send sms
+			} else {
+				utils.sendResponse(res, `END ${response.message}`);
+			}
+		}
+	}
+
+	async collectBuyAirtimeFields(req, res, textArray) {
+		const count = textArray.length;
+		if (count === 2) {
+			utils.sendResponse(res, `CON Enter phone number, eg 070xxxx`);
+		}
+
+		if (count === 3) {
+			utils.sendResponse(res, `CON Enter amount`);
+		}
+
+		if (count === 4) {
+			const data = {
+				userID: '1',
+				country: 'NG',
+				customer: `234${textArray[2]}`,
+				amount: Number.parseInt(textArray[3]),
+				recurrence: 'ONCE',
+				biller_name: 'AIRTIME',
+				reference: 'rave-16141368372',
+				userID: 1,
+				method: 'wallet',
+			};
+
+			const response = await api.sendPostRequest(
+				data,
+				'/purchasebill/',
+				req.authentication
+			);
+			console.log(response);
+			if (response.status) {
+				utils.sendResponse(res, `END ${response.message}`);
+				// TODO: send sms
+			} else {
+				utils.sendResponse(res, `END ${response.message}`);
+			}
+		}
 	}
 
 	thriftSavingsMenu(res) {
@@ -44,9 +143,9 @@ class Menu {
 	 * @param {Array<string>} textArray
 	 * @returns
 	 */
-	async loginMenu(textArray, reqBody, res) {
+	async loginMenu(textArray, req, res) {
 		const count = textArray.length;
-		const { sessionId, phoneNumber } = reqBody;
+		const { sessionId, phoneNumber } = req.body;
 
 		if (count === 1) {
 			utils.sendResponse(res, `CON Enter your username`);
@@ -60,7 +159,11 @@ class Menu {
 				password: textArray[2],
 			};
 
-			const response = await api.login(data);
+			const response = await api.sendPostRequest(
+				data,
+				'/api/token/',
+				req.authentication
+			);
 
 			if (response.access && response.refresh) {
 				// update session
@@ -78,7 +181,7 @@ class Menu {
 				}
 			}
 
-			utils.sendResponse(res, `END ${response.detail}`);
+			utils.sendResponse(res, `END ${response.detail || `An error occured`}`);
 		}
 	}
 

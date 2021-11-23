@@ -60,7 +60,7 @@ app.post(
 						menu.registerMenu(res);
 						break;
 					case '2':
-						menu.loginMenu(textSplit, req.body, res);
+						menu.loginMenu(textSplit, req, res);
 						break;
 					default:
 						utils.sendResponse(res, `END Invalid Choice. Please try again`);
@@ -70,7 +70,7 @@ app.post(
 				const textSplit = text.split('*');
 				switch (textSplit[0]) {
 					case '1':
-						menu.walletMenu(res);
+						menu.walletMenu(req, res, textSplit);
 						break;
 					case '2':
 						menu.thriftSavingsMenu(res);

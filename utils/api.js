@@ -8,29 +8,32 @@ class API {
 
 	/**
 	 *
-	 * @param {{
-	 * username: string,
-	 * password: string
-	 * }} data
+	 * @param {{}} data
 	 * @returns
 	 */
-	async login(data) {
-		const endpoint = '/api/token/';
+	async sendPostRequest(data, endpoint, auth) {
 		const url = `${this.BASE_URI}${endpoint}`;
+		let config = {};
 
-		let loginResponse;
+		if (auth) {
+			config.headers = {
+				Authorization: `Bearer ${auth.accessToken}`,
+			};
+		}
+
+		let response;
 		try {
-			loginResponse = await (await axios.post(url, data)).data;
+			response = await (await axios.post(url, data, config)).data;
 		} catch (error) {
 			console.log(error);
 			if (error.response && error.response.data) {
-				loginResponse = error.response.data;
+				response = error.response.data;
 			} else {
-				loginResponse = { detail: 'An error occured!' };
+				response = { detail: 'An error occured!' };
 			}
 		}
 
-		return loginResponse;
+		return response;
 	}
 }
 
