@@ -1,0 +1,12 @@
+#dependencies
+node_modules
+
+#configs
+configs/.env
+
+#utility
+deleteAll.js
+
+#logs
+combined.log
+error.log
