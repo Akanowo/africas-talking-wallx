@@ -78,7 +78,7 @@ app.post(
 						menu.thriftSavingsMenu(req, res);
 						break;
 					case '3':
-						menu.raiseAFundMenu(req, res);
+						menu.raiseAFundMenu(req, res, textSplit);
 						break;
 					case '4':
 						menu.reportIssueMeu(req, res);
