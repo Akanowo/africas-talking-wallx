@@ -8,6 +8,7 @@ const errorHandler = require('./middleware/errorHandler');
 const validator = require('./middleware/validator');
 const dbConfig = require('./configs/dbConfig');
 const checkIsLoggedIn = require('./middleware/checkLoggedIn');
+const logger = require('./configs/logger');
 
 const app = express();
 
@@ -57,13 +58,14 @@ app.post(
 				const textSplit = text.split('*');
 				switch (textSplit[0]) {
 					case '1':
-						menu.registerMenu(res);
+						menu.registerMenu(req, res);
 						break;
 					case '2':
 						menu.loginMenu(textSplit, req, res);
 						break;
 					default:
 						utils.sendResponse(res, `END Invalid Choice. Please try again`);
+						utils.terminateSession(sessionId);
 				}
 			} else {
 				// user is authenticated and string is not empty
@@ -73,16 +75,17 @@ app.post(
 						menu.walletMenu(req, res, textSplit);
 						break;
 					case '2':
-						menu.thriftSavingsMenu(res);
+						menu.thriftSavingsMenu(req, res);
 						break;
 					case '3':
-						menu.raiseAFundMenu(res);
+						menu.raiseAFundMenu(req, res, textSplit);
 						break;
 					case '4':
-						menu.reportIssueMeu(res);
+						menu.reportIssueMeu(req, res);
 						break;
 					default:
 						utils.sendResponse(res, `END Invalid Choice. Please try again`);
+						utils.terminateSession(sessionId);
 				}
 			}
 		}
@@ -92,5 +95,5 @@ app.post(
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-	console.log(`App started on port ${PORT}`);
+	logger.info(`App started on port ${PORT}`);
 });

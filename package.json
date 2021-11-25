@@ -4,7 +4,8 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-    "start": "nodemon app.js"
+    "start": "set NODE_ENV=production && nodemon app.js",
+    "dev": "set NODE_ENV=development && nodemon app.js"
   },
   "author": "",
   "license": "ISC",
@@ -15,6 +16,8 @@
     "express": "^4.17.1",
     "joi": "^17.4.2",
     "mongoose": "^6.0.13",
-    "nodemon": "^2.0.14"
+    "nodemon": "^2.0.14",
+    "uniqid": "^5.4.0",
+    "winston": "^3.3.3"
   }
 }

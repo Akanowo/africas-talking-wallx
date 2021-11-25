@@ -1,5 +1,6 @@
 const utils = require('../utils');
 const axios = require('axios').default;
+const logger = require('../configs/logger');
 
 class API {
 	constructor() {
@@ -25,11 +26,38 @@ class API {
 		try {
 			response = await (await axios.post(url, data, config)).data;
 		} catch (error) {
-			console.log(error);
 			if (error.response && error.response.data) {
 				response = error.response.data;
+				logger.error(error.response.data);
 			} else {
 				response = { detail: 'An error occured!' };
+				logger.error(error.message);
+			}
+		}
+
+		return response;
+	}
+
+	async sendGetRequest(endpoint, auth) {
+		const url = `${this.BASE_URI}/${endpoint}`;
+		const config = {};
+
+		if (auth) {
+			config.headers = {
+				Authorization: `Bearer ${auth.accessToken}`,
+			};
+		}
+
+		let response;
+		try {
+			response = await (await axios.get(url, config)).data;
+		} catch (error) {
+			if (error.response && error.response.data) {
+				response = error.response.data;
+				logger.error(error.response.data);
+			} else {
+				response = { detail: 'An error occured!' };
+				logger.error(error.message);
 			}
 		}
 

@@ -1,3 +1,5 @@
+const uniqid = require('uniqid');
+const logger = require('./configs/logger');
 const Session = require('./models/session');
 const utils = require('./utils');
 const API = require('./utils/api');
@@ -26,7 +28,9 @@ class Menu {
 			1. Transfer to Wallx
 			2. Transfer to Bank
 			3. Buy Airtime
-			4. Get Wallet Balance`;
+			4. Get Wallet Balance
+			98. Go Back
+			99. Go To Main Menu`;
 			utils.sendResponse(res, text);
 		} else {
 			if (textArray[1] === '1') {
@@ -36,7 +40,8 @@ class Menu {
 			} else if (textArray[1] === '3') {
 				this.collectBuyAirtimeFields(req, res, textArray);
 			} else if (textArray[1] === '4') {
-				utils.sendResponse(res, `END To be implemented`);
+				// send sms to user
+				utils.sendResponse(res, `END An SMS would be sent to you`);
 			} else {
 				utils.sendResponse(res, `END Invalid Choice`);
 			}
@@ -74,12 +79,14 @@ class Menu {
 				'/customertransaction/',
 				req.authentication
 			);
-			console.log(response);
+			logger.info(response);
 			if (response.status) {
 				utils.sendResponse(res, `END ${response.message}`);
+				utils.terminateSession(req.body.sessionId);
 				// TODO: send sms
 			} else {
 				utils.sendResponse(res, `END ${response.message}`);
+				utils.terminateSession(req.body.sessionId);
 			}
 		}
 	}
@@ -112,29 +119,155 @@ class Menu {
 				'/purchasebill/',
 				req.authentication
 			);
-			console.log(response);
 			if (response.status) {
 				utils.sendResponse(res, `END ${response.message}`);
+				logger.info(response);
+				utils.terminateSession(req.body.sessionId);
 				// TODO: send sms
 			} else {
 				utils.sendResponse(res, `END ${response.message}`);
+				logger.info(response);
+				utils.terminateSession(req.body.sessionId);
 			}
 		}
 	}
 
-	thriftSavingsMenu(res) {
+	thriftSavingsMenu(req, res) {
+		utils.terminateSession(req.body.sessionId);
 		utils.sendResponse(res, `END To be implemented`);
 	}
 
-	raiseAFundMenu(res) {
+	async raiseAFundMenu(req, res, textArray) {
+		const count = textArray.length;
+		let text = '';
+
+		if (count === 1) {
+			text = `CON Enter Campaign id`;
+			utils.sendResponse(res, text);
+		}
+
+		if (count === 2) {
+			// get campaign details
+			const apiResult = await api.sendGetRequest(
+				`/crowdcontributionmodule/?id=${textArray[1]}`,
+				req.authentication
+			);
+			if (!apiResult.status) {
+				utils.sendResponse(res, `END ${apiResult.detail}`);
+				utils.terminateSession(req.body.sessionId);
+				return;
+			}
+			const campaign = apiResult.data[0];
+			text = `CON Group Name: ${campaign.groupname.toUpperCase()}
+			1. Donate
+			2. Check contribution status`;
+			utils.sendResponse(res, text);
+		}
+
+		if (count === 3) {
+			if (textArray[2] === '1') {
+				// donate
+				utils.sendResponse(res, `CON Enter amount`);
+			} else if (textArray[2] === '2') {
+				// contribution status
+				const apiResult = await api.sendGetRequest(
+					`/crowdcontributionmodule/?id=${textArray[1]}`,
+					req.authentication
+				);
+				if (!apiResult.status) {
+					utils.sendResponse(res, `END ${apiResult.detail}`);
+					utils.terminateSession(req.body.sessionId);
+					return;
+				}
+				const campaign = apiResult.data[0];
+				text = `END Group Name: ${campaign.groupname.toUpperCase()}
+				Creator: ${campaign.creatorname}
+				Description: ${campaign.groupdecription}
+				Start date: ${campaign.startdate}
+				End date: ${campaign.enddate}
+				Amount per person: ${campaign.amountperperson}
+				Total Contributions: ${campaign.totalcontribution}`;
+				utils.sendResponse(res, text);
+				utils.terminateSession(req.body.sessionId);
+			} else {
+				// invalid choice
+				utils.terminateSession(req.body.sessionId);
+				utils.sendResponse(res, `END Invalid choice`);
+			}
+		}
+
+		if (count === 4) {
+			const apiResult = await api.sendGetRequest(
+				`/crowdcontributionmodule/?id=${textArray[1]}`,
+				req.authentication
+			);
+			if (!apiResult.status) {
+				utils.sendResponse(res, `END ${apiResult.detail}`);
+				utils.terminateSession(req.body.sessionId);
+				return;
+			}
+			const campaign = apiResult.data[0];
+			text = `CON Group Name: ${campaign.groupname.toUpperCase()}
+			Amount: ${textArray[3]}
+			
+			Enter wallet pin`;
+			utils.sendResponse(res, text);
+		}
+
+		if (count === 5) {
+			// send request
+			const data = {
+				groupID: textArray[1],
+				memberID: 1,
+				walletpin: textArray[4],
+				amount: Number.parseInt(textArray[2]),
+				transactionreference: uniqid(),
+				transactiondate: `${new Date().getFullYear()}-${new Date().getMonth()}-${new Date().getDate()}`,
+				paymentmethod: 'wallet',
+				currency: 'NGN',
+			};
+
+			const response = await api.sendPostRequest(
+				data,
+				'/contributiontransaction/',
+				req.authentication
+			);
+			if (!response.status) {
+				utils.sendResponse(
+					res,
+					`END ${response.detail || response.message || 'An error occured'}`
+				);
+				utils.terminateSession(req.body.sessionId);
+				return;
+			}
+
+			utils.sendResponse(res, `END Transaction successful`);
+			utils.terminateSession(req.body.sessionId);
+		}
+	}
+
+	reportIssueMeu(req, res, textArray) {
+		const options = { 1: 'BVN', 2: 'NIN' };
+		const count = textArray.length;
+		let text;
+
+		if (count === 1) {
+			text = `CON Register with
+			1. BVN
+			2. NIN`;
+			utils.sendResponse(res, text);
+		}
+
+		if (count == 2) {
+			// verify bvn or nin and fetch user details
+		}
+
+		utils.terminateSession(req.body.sessionId);
 		utils.sendResponse(res, `END To be implemented`);
 	}
 
-	reportIssueMeu(res) {
-		utils.sendResponse(res, `END To be implemented`);
-	}
-
-	registerMenu(res) {
+	registerMenu(req, res) {
+		utils.terminateSession(req.body.sessionId);
 		utils.sendResponse(res, `END To be implemented`);
 	}
 
