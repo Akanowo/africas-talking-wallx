@@ -12,6 +12,7 @@ const sessionSchema = new Schema({
 	},
 	accessToken: String,
 	refreshToken: String,
+	userID: String,
 });
 
 module.exports = model('Session', sessionSchema);
