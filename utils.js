@@ -8,6 +8,8 @@ module.exports.BASE_URI = 'https://prodapi.wallx.co/API';
 
 module.exports.VERIFYME_BASE_URI = `https://vapi.verifyme.ng`;
 
+module.exports.VERIFYME_TEST_NUMBER = '10000000001';
+
 module.exports.sendResponse = (res, text) => {
 	res.setHeader('Content-Type', 'text/plain');
 	res.send(text);

@@ -58,7 +58,7 @@ app.post(
 				const textSplit = text.split('*');
 				switch (textSplit[0]) {
 					case '1':
-						menu.registerMenu(req, res);
+						menu.registerMenu(req, res, textSplit);
 						break;
 					case '2':
 						menu.loginMenu(textSplit, req, res);
@@ -81,7 +81,7 @@ app.post(
 						menu.raiseAFundMenu(req, res, textSplit);
 						break;
 					case '4':
-						menu.reportIssueMeu(req, res);
+						menu.reportIssueMeu(req, res, textSplit);
 						break;
 					default:
 						utils.sendResponse(res, `END Invalid Choice. Please try again`);

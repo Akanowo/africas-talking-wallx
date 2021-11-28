@@ -63,6 +63,32 @@ class API {
 
 		return response;
 	}
+
+	async verifyDetails(type, number, data) {
+		const url = `${
+			utils.VERIFYME_BASE_URI
+		}/v1/verifications/identities/${type.toLowerCase()}/${number}`;
+		const config = {
+			headers: {
+				Authorization: `Bearer ${process.env.VERIFYME_TEST_SECRET}`,
+			},
+		};
+		let response;
+		try {
+			response = await (await axios.post(url, data, config)).data;
+		} catch (error) {
+			if (error.response && error.response.data) {
+				error.response.data.timestamp = new Date();
+				response = error.response.data;
+				logger.error(error.response.data);
+			} else {
+				console.log(error.stack);
+				response = { detail: 'An error occured!' };
+				logger.error(error.message);
+			}
+		}
+		return response;
+	}
 }
 
 module.exports = API;

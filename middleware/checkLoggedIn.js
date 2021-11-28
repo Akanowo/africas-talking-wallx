@@ -20,6 +20,7 @@ module.exports = asyncHandler(async (req, res, next) => {
 		req.authentication = {
 			accessToken: session.accessToken,
 			refreshToken: session.refreshToken,
+			userID: session.userID,
 		};
 		return next();
 	}
