@@ -353,15 +353,17 @@ class Menu {
 
 		if (count === 7) {
 			// verify bvn
+			// TODO: Change static data to user's data in production
 			const verificationData = {
 				firstname: 'John',
 				lastname: 'Doe',
 				phone: '080000000000',
-				dob: '04-04-1944',
+				dob: options[textArray[1]] === 'BVN' ? '04-04-1944' : '09-04-1997',
 			};
 			const response = await api.verifyDetails(
 				options[textArray[1]],
-				textArray[2],
+				'10000000001',
+				// textArray[2],
 				verificationData
 			);
 			console.log(response);
