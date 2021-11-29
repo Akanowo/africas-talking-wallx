@@ -44,6 +44,7 @@ class Menu {
 				utils.sendResponse(res, `END An SMS would be sent to you`);
 			} else {
 				utils.sendResponse(res, `END Invalid Choice`);
+				utils.terminateSession(req.body.sessionId);
 			}
 		}
 	}
@@ -329,6 +330,8 @@ class Menu {
 			text = `CON Enter ${options[choice]}`;
 			if (!options[choice]) {
 				utils.sendResponse(res, `END Invalid choice`);
+				utils.terminateSession(req.body.sessionId);
+				return;
 			}
 
 			utils.sendResponse(res, text);
@@ -539,11 +542,11 @@ class Menu {
 		let splitText = text.split('*');
 
 		// get index of go to main menu string
-		for (let choice of splitText) {
-			if (choice === utils.GO_TO_MAIN_MENU) {
-				const choiceIndex = splitText.findIndex((x) => x === choice);
-				splitText.splice(0, choiceIndex + 1);
-			}
+		while (splitText.find((x) => x === utils.GO_TO_MAIN_MENU)) {
+			const choiceIndex = splitText.findIndex(
+				(x) => x === utils.GO_TO_MAIN_MENU
+			);
+			splitText.splice(0, choiceIndex + 1);
 		}
 		return splitText.join('*');
 	}
