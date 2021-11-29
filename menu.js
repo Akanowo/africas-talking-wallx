@@ -44,6 +44,7 @@ class Menu {
 				utils.sendResponse(res, `END An SMS would be sent to you`);
 			} else {
 				utils.sendResponse(res, `END Invalid Choice`);
+				utils.terminateSession(req.body.sessionId);
 			}
 		}
 	}
@@ -329,6 +330,8 @@ class Menu {
 			text = `CON Enter ${options[choice]}`;
 			if (!options[choice]) {
 				utils.sendResponse(res, `END Invalid choice`);
+				utils.terminateSession(req.body.sessionId);
+				return;
 			}
 
 			utils.sendResponse(res, text);
@@ -353,15 +356,17 @@ class Menu {
 
 		if (count === 7) {
 			// verify bvn
+			// TODO: Change static data to user's data in production
 			const verificationData = {
 				firstname: 'John',
 				lastname: 'Doe',
 				phone: '080000000000',
-				dob: '04-04-1944',
+				dob: options[textArray[1]] === 'BVN' ? '04-04-1944' : '09-04-1997',
 			};
 			const response = await api.verifyDetails(
 				options[textArray[1]],
-				textArray[2],
+				'10000000001',
+				// textArray[2],
 				verificationData
 			);
 			console.log(response);
@@ -537,11 +542,11 @@ class Menu {
 		let splitText = text.split('*');
 
 		// get index of go to main menu string
-		for (let choice of splitText) {
-			if (choice === utils.GO_TO_MAIN_MENU) {
-				const choiceIndex = splitText.findIndex((x) => x === choice);
-				splitText.splice(0, choiceIndex + 1);
-			}
+		while (splitText.find((x) => x === utils.GO_TO_MAIN_MENU)) {
+			const choiceIndex = splitText.findIndex(
+				(x) => x === utils.GO_TO_MAIN_MENU
+			);
+			splitText.splice(0, choiceIndex + 1);
 		}
 		return splitText.join('*');
 	}
