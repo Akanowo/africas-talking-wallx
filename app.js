@@ -55,7 +55,7 @@ app.post(
 				// This is the first request.
 				// handle login & registration
 				response = `CON Welcome to Wallx.
-		1. Register
+		1. Create An Account
 		2. Login`;
 				utils.sendResponse(res, response);
 			} else if (!authentication && text !== '') {
