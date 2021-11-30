@@ -203,7 +203,7 @@ class Menu {
 						text: `
 						Total Received: ${response.totalrecieved}
 						Total Disbursed: ${response.totaldisbursed}
-						Available Balance: ${response.data.totalrecieved - response.data.totaldisbursed}
+						Available Balance: ${response.totalrecieved - response.totaldisbursed}
 						`,
 					};
 				}
