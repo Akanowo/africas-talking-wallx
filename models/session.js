@@ -13,6 +13,7 @@ const sessionSchema = new Schema({
 	accessToken: String,
 	refreshToken: String,
 	userID: String,
+	identityLogo: String,
 });
 
 module.exports = model('Session', sessionSchema);

@@ -9,11 +9,16 @@ const validator = require('./middleware/validator');
 const dbConfig = require('./configs/dbConfig');
 const checkIsLoggedIn = require('./middleware/checkLoggedIn');
 const logger = require('./configs/logger');
+const helmet = require('helmet');
 
 const app = express();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+if (process.env.NODE_ENV.trim() === 'production') {
+	app.use(helmet());
+}
 
 dbConfig();
 
@@ -75,7 +80,7 @@ app.post(
 						menu.walletMenu(req, res, textSplit);
 						break;
 					case '2':
-						menu.thriftSavingsMenu(req, res);
+						menu.thriftSavingsMenu(req, res, textSplit);
 						break;
 					case '3':
 						menu.raiseAFundMenu(req, res, textSplit);
