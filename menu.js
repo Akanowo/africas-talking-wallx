@@ -28,7 +28,7 @@ class Menu {
 			1. Transfer to Wallx
 			2. Transfer to Bank
 			3. Buy Airtime
-			4. Get Wallet Balance
+			4. Check Wallet Balance
 			98. Go Back
 			99. Go To Main Menu`;
 			utils.sendResponse(res, text);
@@ -40,8 +40,7 @@ class Menu {
 			} else if (textArray[1] === '3') {
 				this.collectBuyAirtimeFields(req, res, textArray);
 			} else if (textArray[1] === '4') {
-				// send sms to user
-				utils.sendResponse(res, `END An SMS would be sent to you`);
+				this.checkWalletBalance(req, res, textArray);
 			} else {
 				utils.sendResponse(res, `END Invalid Choice`);
 				utils.terminateSession(req.body.sessionId);
@@ -129,16 +128,98 @@ class Menu {
 				utils.terminateSession(req.body.sessionId);
 				// TODO: send sms
 			} else {
-				utils.sendResponse(res, `END ${response.message}`);
+				utils.sendResponse(
+					res,
+					`END ${response.message || response.detail || 'An error occured'}`
+				);
 				logger.info(response);
 				utils.terminateSession(req.body.sessionId);
 			}
 		}
 	}
 
-	thriftSavingsMenu(req, res) {
+	async checkWalletBalance(req, res, textArray) {
+		const response = await api.sendGetRequest(
+			`/customerwalletbalance/?userid=${req.authentication.userID}`,
+			req.authentication
+		);
+		console.log(response);
+		if (!response.status) {
+			utils.sendResponse(
+				res,
+				`END ${response.detail || response.message || 'An error occured'}`
+			);
+			utils.terminateSession(req.body.sessionId);
+			return;
+		}
+
+		utils.sendResponse(
+			res,
+			`END Your wallet NGN balance is
+		NGN: ${response.data.NGN}
+		USD: ${response.data.USD}`
+		);
 		utils.terminateSession(req.body.sessionId);
-		utils.sendResponse(res, `END To be implemented`);
+	}
+
+	async thriftSavingsMenu(req, res, textArray) {
+		const count = textArray.length;
+		if (count === 1) {
+			utils.sendResponse(res, `CON Enter Customer ID`);
+		}
+
+		if (count === 2) {
+			utils.sendResponse(
+				res,
+				`CON Select one
+			1. Check Your Profile Information
+			2. Check Saving Status`
+			);
+		}
+
+		if (count === 3) {
+			const response = await api.sendGetRequest(
+				`/agentcustomerdetails/?walletID=${textArray[1]}`
+			);
+			console.log(response);
+			if (response.status) {
+				let smsData;
+				if (textArray[2] === '1') {
+					smsData = {
+						text: `
+						Customer ID: ${response.data.userid}
+						Name: ${response.data.fullname}
+						Description: ${response.data.description}
+						Location: ${response.data.location}
+						Start Date: ${response.data.startdate}
+						Next of Kin: ${response.data.nextofkin}
+						Next of Kin's Phone Number: ${response.data.nextofkinphone}
+						Amount: ${response.data.amount}
+						Payment Frequency: ${response.data.frequency}`,
+					};
+				}
+				if (textArray[2] === '2') {
+					smsData = {
+						text: `
+						Total Received: ${response.data.totalrecieved}
+						Total Disbursed: ${response.data.totaldisbursed}
+						Available Balance: ${response.data.totalrecieved - response.data.totaldisbursed}
+						`,
+					};
+				}
+				console.log(smsData);
+				utils.sendResponse(res, `END An SMS will be sent to you`);
+				utils.terminateSession(req.body.sessionId);
+				// TODO: Send sms to user
+				return;
+			}
+
+			utils.sendResponse(
+				res,
+				`END ${response.detail || response.message || 'An error occured'}`
+			);
+			utils.terminateSession(req.body.sessionId);
+		}
 	}
 
 	async raiseAFundMenu(req, res, textArray) {
@@ -293,7 +374,7 @@ class Menu {
 
 			const response = await api.sendPostRequest(
 				data,
-				'/complaint/',
+				'/customercomplaint/',
 				req.authentication
 			);
 
@@ -399,6 +480,24 @@ class Menu {
 					return;
 				}
 
+				// update user details with picture
+				let userUpdate;
+				try {
+					userUpdate = await Session.findOneAndUpdate(
+						{
+							sessionId: req.body.sessionId,
+							phoneNumber: req.body.phoneNumber,
+						},
+						{ identityLogo: response.data.photo },
+						{ runValidators: true }
+					);
+				} catch (error) {
+					logger.info(error.stack);
+					utils.sendResponse(res, `END An error occured`);
+					utils.terminateSession(req.body.sessionId);
+					return;
+				}
+
 				// collect password and wallet pin
 				text = `CON Enter your email address`;
 				utils.sendResponse(res, text);
@@ -437,6 +536,18 @@ class Menu {
 		}
 
 		if (count === 11) {
+			// fetch user details
+			const userDetails = await Session.findOne({
+				sessionId: req.body.sessionId,
+				phoneNumber: req.body.phoneNumber,
+			}).select('identityLogo');
+
+			console.log('fetched user details', userDetails);
+
+			// split dob
+			const splitDob = textArray[5].split('-');
+			const swapDob = `${splitDob[2]}-${splitDob[1]}-${splitDob[0]}`;
+			console.log(swapDob);
 			const data = {
 				businessname: '',
 				userpassword: `${textArray[8]}`,
@@ -445,12 +556,38 @@ class Menu {
 				accountname: `${textArray[3]} ${textArray[4]}`,
 				role: 'customer',
 				wallexpin: `${textArray[9]}`,
-				dob: textArray[5],
+				dob: swapDob,
 				currency: 'NGN',
 				bvn: options[textArray[1]] === 'BVN' ? textArray[2] : '',
 				nin: options[textArray[1]] === 'NIN' ? textArray[2] : '',
-				token: `${textArray[10]}`,
+				otp: `${textArray[10]}`,
+				identitylogo: userDetails.identityLogo,
 			};
+
+			const response = await api.sendPostRequest(
+				data,
+				'/merchant/',
+				req.authentication
+			);
+
+			console.log(response);
+
+			if (response.status) {
+				utils.sendResponse(
+					res,
+					`END Complaint made successfuly. You will be contacted within 24 hours`
+				);
+				logger.info(response);
+				utils.terminateSession(req.body.sessionId);
+				// TODO: send sms
+			} else {
+				utils.sendResponse(
+					res,
+					`END ${response.message || response.detail || 'An error occured'}`
+				);
+				logger.info(response);
+				utils.terminateSession(req.body.sessionId);
+			}
 
 			console.log(data);
 			utils.sendResponse(res, `END To be implemented`);
