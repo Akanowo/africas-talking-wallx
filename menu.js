@@ -201,8 +201,8 @@ class Menu {
 				if (textArray[2] === '2') {
 					smsData = {
 						text: `
-						Total Received: ${response.data.totalrecieved}
-						Total Disbursed: ${response.data.totaldisbursed}
+						Total Received: ${response.totalrecieved}
+						Total Disbursed: ${response.totaldisbursed}
 						Available Balance: ${response.data.totalrecieved - response.data.totaldisbursed}
 						`,
 					};
