@@ -155,7 +155,7 @@ class Menu {
 
 		utils.sendResponse(
 			res,
-			`END Your wallet NGN balance is
+			`END Your wallet balance is
 		NGN: ${response.data.NGN}
 		USD: ${response.data.USD}`
 		);
