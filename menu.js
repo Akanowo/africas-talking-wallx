@@ -208,7 +208,7 @@ class Menu {
 					};
 				}
 				console.log(smsData);
-				utils.sendResponse(res, `END An SMS will be sent to you`);
+				utils.sendResponse(res, `END ${smsData.text}`);
 				utils.terminateSession(req.body.sessionId);
 				// TODO: Send sms to user
 				return;
