@@ -1,8 +1,10 @@
 const uniqid = require('uniqid');
 const logger = require('./configs/logger');
+const Account = require('./models/account');
 const Session = require('./models/session');
 const utils = require('./utils');
 const API = require('./utils/api');
+const { getSession, createSession, updateSession } = require('./utils/session');
 
 const api = new API();
 
@@ -21,7 +23,7 @@ class Menu {
 		utils.sendResponse(res, text);
 	}
 
-	walletMenu(req, res, textArray) {
+	async walletMenu(req, res, textArray) {
 		const count = textArray.length;
 		if (count === 1) {
 			const text = `CON Choose an option
@@ -33,46 +35,64 @@ class Menu {
 			99. Go To Main Menu`;
 			utils.sendResponse(res, text);
 		} else {
-			if (textArray[1] === '1') {
-				this.collectTransferToWallxFields(req, res, textArray);
-			} else if (textArray[1] === '2') {
-				utils.sendResponse(res, `END To be implemented`);
-			} else if (textArray[1] === '3') {
-				this.collectBuyAirtimeFields(req, res, textArray);
-			} else if (textArray[1] === '4') {
-				this.checkWalletBalance(req, res, textArray);
-			} else {
-				utils.sendResponse(res, `END Invalid Choice`);
-				utils.terminateSession(req.body.sessionId);
+			// login the user
+			await this.loginMenu(textArray, req, res);
+			// get session details
+			if (count >= 4) {
+				const session = await getSession(req);
+				req.authentication = {
+					accessToken: session.accessToken,
+					refreshToken: session.refreshToken,
+					userID: session.userID,
+				};
+				if (!session) {
+					utils.sendResponse(res, `END An error occured`);
+					utils.terminateSession(req.body.sessionId);
+					return;
+				}
+				if (textArray[1] === '1') {
+					this.collectTransferToWallxFields(req, res, textArray);
+				} else if (textArray[1] === '2') {
+					this.collectTransferToBankFields(req, res, textArray);
+				} else if (textArray[1] === '3') {
+					this.collectBuyAirtimeFields(req, res, textArray);
+				} else if (textArray[1] === '4') {
+					this.checkWalletBalance(req, res, textArray);
+				} else {
+					utils.sendResponse(res, `END Invalid Choice`);
+					utils.terminateSession(req.body.sessionId);
+				}
 			}
 		}
 	}
 
 	async collectTransferToWallxFields(req, res, textArray) {
 		const count = textArray.length;
-		if (count === 2) {
+		if (count === 4) {
 			utils.sendResponse(res, `CON Enter reciever wallet id`);
 		}
 
-		if (count === 3) {
+		if (count === 5) {
 			utils.sendResponse(res, `CON Enter amount`);
 		}
 
-		if (count === 4) {
+		if (count === 6) {
 			utils.sendResponse(res, `CON Enter wallet pin`);
 		}
 
-		if (count === 5) {
+		if (count === 7) {
 			const data = {
-				userID: '128',
-				recieverwalletId: textArray[2],
-				amount: textArray[3],
-				walletpin: textArray[4],
+				userID: req.authentication.userID,
+				recieverwalletId: textArray[4],
+				amount: textArray[5],
+				walletpin: textArray[6],
 				description: '',
 				transactiontype: 'wallet',
 				commission: '50',
 				currency: 'NGN',
 			};
+
+			console.log('reqest data:', data);
 
 			const response = await api.sendPostRequest(
 				data,
@@ -94,25 +114,176 @@ class Menu {
 		}
 	}
 
+	async collectTransferToBankFields(req, res, textArray) {
+		const count = textArray.length;
+		console.log(count);
+		let text = '';
+		// Pagination
+		let page = 1;
+		const limit = 8;
+
+		if (count === 4) {
+			utils.sendResponse(res, `CON Enter Amount`);
+			return;
+		}
+
+		if (count === 5) {
+			utils.sendResponse(res, `CON Enter Account Number`);
+			return;
+		}
+
+		if (count === 6) {
+			// fetch banks
+			const banks = await api.fetchBanks();
+			const startIndex = (page - 1) * limit;
+			const endIndex = page * limit;
+
+			const banksToShow = banks.slice(startIndex, endIndex).map((x) => x.name);
+			console.log(banksToShow);
+			for (let i = 0; i < banksToShow.length; i++) {
+				text += `${i + 1} ${banksToShow[i]}\n`;
+			}
+
+			utils.sendResponse(
+				res,
+				'Select a bank \n' +
+					text +
+					`${endIndex >= banks.length ? '' : '97. Next\n99. Go To Main Menu'}`
+			);
+		} else {
+			// get the last item entered
+			const lastItem = textArray[count - 1];
+			if (lastItem === utils.NEXT) {
+				// Go to next page of bank list
+
+				// get the number of nexts
+				const nexts = textArray.filter((x) => x === utils.NEXT);
+				const nextsCount = nexts.length;
+
+				page = page + nextsCount;
+				const banks = await api.fetchBanks();
+				console.log(banks.length);
+				const startIndex = (page - 1) * limit;
+				const endIndex = page * limit;
+
+				const banksToShow = banks
+					.slice(startIndex, endIndex)
+					.map((x) => x.name);
+				console.log(banksToShow);
+
+				for (let i = 0; i < banksToShow.length; i++) {
+					// get index of bank
+					const bankIndex = banks.findIndex((x) => x.name === banksToShow[i]);
+					text += `${bankIndex + 1} ${banksToShow[i]}\n`;
+				}
+
+				utils.sendResponse(
+					res,
+					text +
+						`${
+							endIndex >= banks.length
+								? ''
+								: '97. Next\n98. Go Back\n99. Go To Main Menu'
+						}`
+				);
+			} else {
+				const lastItem = Number.parseInt(textArray[count - 1]);
+				const banks = await api.fetchBanks();
+
+				const selectedBank = banks[lastItem - 1];
+				if (selectedBank) {
+					console.log(selectedBank);
+					const verificationData = {
+						account_number: textArray[5],
+						code: selectedBank.code,
+					};
+
+					const response = await api.verifyBankDetails(
+						verificationData,
+						req.body.sessionId
+					);
+
+					if (!response) {
+						utils.sendResponse(
+							'END Could not resolve account name. Check parameters or try again'
+						);
+						utils.terminateSession(req.body.sessionId);
+						return;
+					}
+
+					text = `CON Account Number: ${response.account_number}
+					Account Name: ${response.account_name}
+					
+					Enter wallet pin`;
+
+					utils.sendResponse(res, text);
+				} else {
+					const accountDetails = await Account.findOne({
+						accountNumber: textArray[5],
+					});
+					const commission = await api.sendGetRequest(
+						`/chargedetails/?chargetype=nairatransfer&amount=${textArray[4]}`
+					);
+					const data = {
+						userID: req.authentication.userID,
+						account_bank: accountDetails.account_code,
+						account_number: textArray[5],
+						amount: textArray[4],
+						walletpin: textArray[count - 1],
+						description: '',
+						transactiontype: 'bank',
+						commission: commission.data,
+						currency: 'NGN',
+					};
+
+					console.log('API DATA: ', data);
+
+					const response = await api.sendPostRequest(
+						data,
+						'/customertransaction/',
+						req.authentication
+					);
+					if (!response.status) {
+						utils.sendResponse(
+							res,
+							'END ' + response.detail || response.message || 'An error occured'
+						);
+						utils.terminateSession(req.body.sessionId);
+						return;
+					}
+
+					utils.sendResponse(res, `END Transfer successful`);
+					utils.terminateSession(req.body.sessionId);
+
+					// TODO: Send sms of user's balance
+					const walletBalance = api.sendGetRequest(
+						`/customerwalletbalance/?userid=${req.authentication.userID}`
+					);
+					console.log('wallet balance: ', walletBalance);
+				}
+			}
+		}
+	}
+
 	async collectBuyAirtimeFields(req, res, textArray) {
 		const count = textArray.length;
-		if (count === 2) {
+		if (count === 4) {
 			utils.sendResponse(res, `CON Enter phone number, eg 070xxxx`);
 		}
 
-		if (count === 3) {
+		if (count === 5) {
 			utils.sendResponse(res, `CON Enter amount`);
 		}
 
-		if (count === 4) {
+		if (count === 6) {
 			const data = {
 				userID: req.authentication.userID,
 				country: 'NG',
-				customer: `234${textArray[2]}`,
-				amount: Number.parseInt(textArray[3]),
+				customer: `234${textArray[4]}`,
+				amount: Number.parseInt(textArray[5]),
 				recurrence: 'ONCE',
 				biller_name: 'AIRTIME',
-				reference: 'rave-16141368372',
+				reference: `rave-${uniqid()}`,
 				userID: 1,
 				method: 'wallet',
 			};
@@ -143,7 +314,6 @@ class Menu {
 			`/customerwalletbalance/?userid=${req.authentication.userID}`,
 			req.authentication
 		);
-		console.log(response);
 		if (!response.status) {
 			utils.sendResponse(
 				res,
@@ -155,7 +325,7 @@ class Menu {
 
 		utils.sendResponse(
 			res,
-			`END Your wallet NGN balance is
+			`END Your wallet balance is
 		NGN: ${response.data.NGN}
 		USD: ${response.data.USD}`
 		);
@@ -181,7 +351,6 @@ class Menu {
 			const response = await api.sendGetRequest(
 				`/agentcustomerdetails/?walletID=${textArray[1]}`
 			);
-			console.log(response);
 			if (response.status) {
 				let smsData;
 				if (textArray[2] === '1') {
@@ -201,14 +370,14 @@ class Menu {
 				if (textArray[2] === '2') {
 					smsData = {
 						text: `
-						Total Received: ${response.data.totalrecieved}
-						Total Disbursed: ${response.data.totaldisbursed}
-						Available Balance: ${response.data.totalrecieved - response.data.totaldisbursed}
+						Total Received: ${response.totalrecieved}
+						Total Disbursed: ${response.totaldisbursed}
+						Available Balance: ${response.totalrecieved - response.totaldisbursed}
 						`,
 					};
 				}
 				console.log(smsData);
-				utils.sendResponse(res, `END An SMS will be sent to you`);
+				utils.sendResponse(res, `END ${smsData.text}`);
 				utils.terminateSession(req.body.sessionId);
 				// TODO: Send sms to user
 				return;
@@ -233,32 +402,54 @@ class Menu {
 
 		if (count === 2) {
 			// get campaign details
-			const apiResult = await api.sendGetRequest(
-				`/crowdcontributionmodule/?id=${textArray[1]}`,
+			const details = {
+				username: process.env.ADMIN_USER,
+				password: process.env.ADMIN_PWD,
+			};
+			const tokenResponse = await api.sendPostRequest(
+				details,
+				'/api/token/',
 				req.authentication
 			);
-			console.log(apiResult);
-			if (!apiResult.status) {
-				utils.sendResponse(res, `END ${apiResult.detail}`);
-				utils.terminateSession(req.body.sessionId);
+			const sessionUpdate = await updateSession(req, {
+				accessToken: tokenResponse.access,
+				refreshToken: tokenResponse.refresh,
+			});
+			console.log(sessionUpdate);
+			if (sessionUpdate) {
+				const apiResult = await api.sendGetRequest(
+					`/crowdcontributionmodule/?id=${textArray[1]}`,
+					sessionUpdate
+				);
+				if (!apiResult.status) {
+					utils.sendResponse(res, `END ${apiResult.detail}`);
+					utils.terminateSession(req.body.sessionId);
+					return;
+				}
+				const campaign = apiResult.data[0];
+				text = `CON Group Name: ${campaign.groupname.toUpperCase()}
+				1. Donate
+				2. Check contribution status`;
+				utils.sendResponse(res, text);
+			} else {
+				utils.sendResponse(res, `END An error occured`);
 				return;
 			}
-			const campaign = apiResult.data[0];
-			text = `CON Group Name: ${campaign.groupname.toUpperCase()}
-			1. Donate
-			2. Check contribution status`;
-			utils.sendResponse(res, text);
 		}
 
 		if (count === 3) {
+			// donate
 			if (textArray[2] === '1') {
-				// donate
-				utils.sendResponse(res, `CON Enter amount`);
+				text = `CON Donate From
+				1. Wallet
+				2. Generate Link`;
+				utils.sendResponse(res, text);
 			} else if (textArray[2] === '2') {
 				// contribution status
+				const sessionDetails = await getSession(req);
 				const apiResult = await api.sendGetRequest(
 					`/crowdcontributionmodule/?id=${textArray[1]}`,
-					req.authentication
+					sessionDetails
 				);
 				console.log(apiResult);
 				if (!apiResult.status) {
@@ -278,15 +469,62 @@ class Menu {
 				utils.terminateSession(req.body.sessionId);
 			} else {
 				// invalid choice
+				utils.sendResponse('END Invalid choice');
+				utils.terminateSession(req.body.sessionId);
+			}
+		}
+
+		if (count === 4) {
+			if (textArray[3] === '1') {
+				// login user
+				textArray.splice(0, count - 2);
+				this.loginMenu(textArray, req, res);
+			} else if (textArray[3] === '2') {
+				const sessionDetails = await getSession(req);
+				// get campaign details
+				const apiResult = await api.sendGetRequest(
+					`/crowdcontributionmodule/?id=${textArray[1]}`,
+					sessionDetails
+				);
+				if (!apiResult.status) {
+					utils.sendResponse(res, `END ${apiResult.detail}`);
+					utils.terminateSession(req.body.sessionId);
+					return;
+				}
+				const campaign = apiResult.data[0];
+				// generate link
+				campaign.groupname = campaign.groupname.replace(' ', '%20');
+				const link = `https://crowdfunding.wallx.co/${campaign.groupname}/${textArray[1]}`;
+				console.log(link);
+				utils.sendResponse(
+					res,
+					`END A payment link would be sent to you via SMS`
+				);
+				utils.terminateSession(req.body.sessionId);
+				// TODO: Send sms
+			} else {
+				// invalid choice
 				utils.terminateSession(req.body.sessionId);
 				utils.sendResponse(res, `END Invalid choice`);
 			}
 		}
 
-		if (count === 4) {
+		if (count === 5) {
+			textArray.splice(0, count - 3);
+			this.loginMenu(textArray, req, res);
+		}
+
+		if (count === 6) {
+			textArray.splice(0, count - 4);
+			await this.loginMenu(textArray, req, res);
+			utils.sendResponse(res, `CON Enter Amount`);
+		}
+
+		if (count === 7) {
+			const sessionDetails = await getSession(req);
 			const apiResult = await api.sendGetRequest(
 				`/crowdcontributionmodule/?id=${textArray[1]}`,
-				req.authentication
+				sessionDetails
 			);
 			console.log(apiResult);
 			if (!apiResult.status) {
@@ -296,19 +534,20 @@ class Menu {
 			}
 			const campaign = apiResult.data[0];
 			text = `CON Group Name: ${campaign.groupname.toUpperCase()}
-			Amount: ${textArray[3]}
+			Amount: ${textArray[6]}
 			
 			Enter wallet pin`;
 			utils.sendResponse(res, text);
 		}
 
-		if (count === 5) {
+		if (count === 8) {
 			// send request
+			const sessionDetails = await getSession(req);
 			const data = {
 				groupID: textArray[1],
-				memberID: 1,
-				walletpin: textArray[4],
-				amount: Number.parseInt(textArray[2]),
+				memberID: sessionDetails.userID,
+				walletpin: textArray[7],
+				amount: Number.parseInt(textArray[6]),
 				transactionreference: uniqid(),
 				transactiondate: `${new Date().getFullYear()}-${new Date().getMonth()}-${new Date().getDate()}`,
 				paymentmethod: 'wallet',
@@ -318,7 +557,7 @@ class Menu {
 			const response = await api.sendPostRequest(
 				data,
 				'/contributiontransaction/',
-				req.authentication
+				sessionDetails
 			);
 			if (!response.status) {
 				utils.sendResponse(
@@ -602,18 +841,16 @@ class Menu {
 	 */
 	async loginMenu(textArray, req, res) {
 		const count = textArray.length;
-		const { sessionId, phoneNumber } = req.body;
-
-		if (count === 1) {
+		if (count === 2) {
 			utils.sendResponse(res, `CON Enter your phone number`);
 			return;
-		} else if (count === 2) {
+		} else if (count === 3) {
 			utils.sendResponse(res, `CON Enter your password`);
 			return;
-		} else if (count === 3) {
+		} else if (count === 4) {
 			const data = {
-				username: textArray[1],
-				password: textArray[2],
+				username: textArray[2],
+				password: textArray[3],
 			};
 			const endpoint = `/merchant/?username=${data.username}&password=${data.password}&role=customer`;
 
@@ -623,24 +860,18 @@ class Menu {
 
 			if (response.status) {
 				// update session
-				const updatedSession = await Session.findOneAndUpdate(
-					{ sessionId, phoneNumber },
-					{
-						accessToken: response.token,
-						refreshToken: response.refresh,
-						userID: response.data.id,
-					},
-					{ runValidators: true, new: true }
-				);
+				const updatedSession = await updateSession(req, {
+					accessToken: response.token,
+					refreshToken: response.refresh,
+					userID: response.data.id,
+				});
 
-				if (updatedSession) {
-					utils.sendResponse(res, `CON 99. Go to main menu`);
-					return;
-				} else {
+				if (!updatedSession) {
 					utils.sendResponse(res, `END An error occured! Please try again`);
 					utils.terminateSession(req.body.sessionId);
 					return;
 				}
+				return;
 			}
 
 			utils.sendResponse(
@@ -665,7 +896,7 @@ class Menu {
 		// get index of go to main menu string
 		while (splitText.find((x) => x === utils.GO_BACK)) {
 			const choiceIndex = splitText.findIndex((x) => x === utils.GO_BACK);
-			splitText.splice(choiceIndex - 1, choiceIndex + 1);
+			splitText.splice(choiceIndex - 1, 2);
 		}
 		return splitText.join('*');
 	}

@@ -1,8 +1,11 @@
+const Account = require('./models/account');
 const Session = require('./models/session');
 
 module.exports.GO_BACK = '98';
 
 module.exports.GO_TO_MAIN_MENU = '99';
+
+module.exports.NEXT = '97';
 
 module.exports.BASE_URI = 'https://prodapi.wallx.co/API';
 
@@ -17,6 +20,7 @@ module.exports.sendResponse = (res, text) => {
 
 module.exports.terminateSession = async (sessionId) => {
 	const terminatedSession = await Session.findOneAndDelete({ sessionId });
+	const deletedAccounts = await Account.deleteMany({ sessionId });
 
 	if (terminatedSession) {
 		console.log('session terminated');
