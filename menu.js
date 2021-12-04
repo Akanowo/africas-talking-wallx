@@ -146,7 +146,7 @@ class Menu {
 
 			utils.sendResponse(
 				res,
-				'Select a bank \n' +
+				'CON Select a bank \n' +
 					text +
 					`${endIndex >= banks.length ? '' : '97. Next\n99. Go To Main Menu'}`
 			);
@@ -174,7 +174,7 @@ class Menu {
 				for (let i = 0; i < banksToShow.length; i++) {
 					// get index of bank
 					const bankIndex = banks.findIndex((x) => x.name === banksToShow[i]);
-					text += `${bankIndex + 1} ${banksToShow[i]}\n`;
+					text += `CON ${bankIndex + 1} ${banksToShow[i]}\n`;
 				}
 
 				utils.sendResponse(
