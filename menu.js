@@ -206,6 +206,7 @@ class Menu {
 
 					if (!response) {
 						utils.sendResponse(
+							res,
 							'END Could not resolve account name. Check parameters or try again'
 						);
 						utils.terminateSession(req.body.sessionId);
@@ -225,8 +226,10 @@ class Menu {
 					const commission = await api.sendGetRequest(
 						`/chargedetails/?chargetype=nairatransfer&amount=${textArray[4]}`
 					);
+					const sessionDetails = await getSession(req);
+					console.log(sessionDetails);
 					const data = {
-						userID: req.authentication.userID,
+						userID: sessionDetails.userID,
 						account_bank: accountDetails.account_code,
 						account_number: textArray[5],
 						amount: textArray[4],
@@ -247,7 +250,8 @@ class Menu {
 					if (!response.status) {
 						utils.sendResponse(
 							res,
-							'END ' + response.detail || response.message || 'An error occured'
+							'END ' +
+								`${response.detail || response.message || 'An error occured'}`
 						);
 						utils.terminateSession(req.body.sessionId);
 						return;

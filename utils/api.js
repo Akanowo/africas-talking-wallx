@@ -116,6 +116,10 @@ class API {
 			response = false;
 		}
 
+		if (!response) {
+			return false;
+		}
+
 		if (response.data.status) {
 			// store account details in db
 			const accountDetails = {
