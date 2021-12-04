@@ -146,7 +146,7 @@ class Menu {
 
 			utils.sendResponse(
 				res,
-				'Select a bank \n' +
+				'CON Select a bank \n' +
 					text +
 					`${endIndex >= banks.length ? '' : '97. Next\n99. Go To Main Menu'}`
 			);
