@@ -179,7 +179,7 @@ class Menu {
 
 				utils.sendResponse(
 					res,
-					'CON' +
+					'CON ' +
 						text +
 						`${
 							endIndex >= banks.length
