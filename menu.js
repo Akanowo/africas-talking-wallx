@@ -180,7 +180,7 @@ class Menu {
 				utils.sendResponse(
 					res,
 					text +
-						`${
+						`CON ${
 							endIndex >= banks.length
 								? ''
 								: '97. Next\n98. Go Back\n99. Go To Main Menu'
