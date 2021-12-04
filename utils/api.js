@@ -1,6 +1,7 @@
 const utils = require('../utils');
 const axios = require('axios').default;
 const logger = require('../configs/logger');
+const Account = require('../models/account');
 
 class API {
 	constructor() {
@@ -88,6 +89,46 @@ class API {
 			}
 		}
 		return response;
+	}
+
+	async fetchBanks() {
+		const url = 'https://api.paystack.co/bank';
+		const response = await axios.get(url, {
+			headers: {
+				Authorization: `Bearer ${process.env.PAYSTACK_SECRET}`,
+			},
+		});
+
+		return response.data.data;
+	}
+
+	async verifyBankDetails(data, sessionId) {
+		const url = `https://api.paystack.co/bank/resolve?account_number=${data.account_number}&bank_code=${data.code}`;
+		let response;
+		try {
+			response = await axios.get(url, {
+				headers: {
+					Authorization: `Bearer ${process.env.PAYSTACK_SECRET}`,
+				},
+			});
+		} catch (error) {
+			logger.error(error);
+			response = false;
+		}
+
+		if (response.data.status) {
+			// store account details in db
+			const accountDetails = {
+				sessionId,
+				account_number: data.account_number,
+				account_code: data.code,
+				account_name: response.data.account_name,
+			};
+			const account = await Account.create(accountDetails);
+			return response.data.data;
+		}
+
+		return false;
 	}
 }
 

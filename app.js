@@ -7,9 +7,9 @@ const asyncHandler = require('./middleware/async');
 const errorHandler = require('./middleware/errorHandler');
 const validator = require('./middleware/validator');
 const dbConfig = require('./configs/dbConfig');
-const checkIsLoggedIn = require('./middleware/checkLoggedIn');
 const logger = require('./configs/logger');
 const helmet = require('helmet');
+const { createSession } = require('./utils/session');
 
 const app = express();
 
@@ -27,7 +27,7 @@ const PORT = process.env.PORT || 3000;
 app.post(
 	'/ussd',
 	validator,
-	checkIsLoggedIn,
+	//checkIsLoggedIn,
 	asyncHandler(
 		/**
 		 *
@@ -40,38 +40,16 @@ app.post(
 		 * @param {*} res
 		 */
 		async (req, res) => {
+			const createdSession = await createSession(req);
 			let { sessionId, serviceCode, phoneNumber, text } = req.body;
-
-			const { authentication } = req;
 
 			const menu = new Menu(phoneNumber);
 			text = menu.middleware(text);
 
 			let response = '';
 
-			if (text === '' && authentication) {
+			if (text === '') {
 				menu.authenticatedMenu(res);
-			} else if (text === '' && !authentication) {
-				// This is the first request.
-				// handle login & registration
-				response = `CON Welcome to Wallx.
-		1. Create An Account
-		2. Login`;
-				utils.sendResponse(res, response);
-			} else if (!authentication && text !== '') {
-				// text is not empty and user is not logged in
-				const textSplit = text.split('*');
-				switch (textSplit[0]) {
-					case '1':
-						menu.registerMenu(req, res, textSplit);
-						break;
-					case '2':
-						menu.loginMenu(textSplit, req, res);
-						break;
-					default:
-						utils.sendResponse(res, `END Invalid Choice. Please try again`);
-						utils.terminateSession(sessionId);
-				}
 			} else {
 				// user is authenticated and string is not empty
 				const textSplit = text.split('*');
