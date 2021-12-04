@@ -174,12 +174,13 @@ class Menu {
 				for (let i = 0; i < banksToShow.length; i++) {
 					// get index of bank
 					const bankIndex = banks.findIndex((x) => x.name === banksToShow[i]);
-					text += `CON ${bankIndex + 1} ${banksToShow[i]}\n`;
+					text += `${bankIndex + 1} ${banksToShow[i]}\n`;
 				}
 
 				utils.sendResponse(
 					res,
-					text +
+					'CON ' +
+						text +
 						`${
 							endIndex >= banks.length
 								? ''
