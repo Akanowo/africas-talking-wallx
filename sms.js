@@ -12,7 +12,7 @@ class SMS {
 		const sendData = {
 			body: text,
 			to,
-			from: this.phoneNumber,
+			from: 'wallx',
 		};
 
 		const response = await twilioClient.messages.create(sendData);
