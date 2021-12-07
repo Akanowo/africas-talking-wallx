@@ -4,6 +4,7 @@ const Account = require('./models/account');
 const Session = require('./models/session');
 const utils = require('./utils');
 const API = require('./utils/api');
+const SMS = require('./sms');
 const { getSession, createSession, updateSession } = require('./utils/session');
 
 const api = new API();
@@ -27,14 +28,23 @@ class Menu {
 		const count = textArray.length;
 		if (count === 1) {
 			const text = `CON Choose an option
-			1. Transfer to Wallx
-			2. Transfer to Bank
-			3. Buy Airtime
-			4. Check Wallet Balance
+			1. Create a Wallx Account
+			2. Transfer to Wallx
+			3. Transfer to Bank
+			4. Buy Airtime
+			5. Check Wallet Balance
 			98. Go Back
 			99. Go To Main Menu`;
 			utils.sendResponse(res, text);
 		} else {
+			if (textArray[1] === '1') {
+				// register the user
+
+				textArray.splice(0, 1);
+				await this.registerMenu(req, res, textArray);
+				return;
+			}
+
 			// login the user
 			await this.loginMenu(textArray, req, res);
 			// get session details
@@ -50,13 +60,13 @@ class Menu {
 					utils.terminateSession(req.body.sessionId);
 					return;
 				}
-				if (textArray[1] === '1') {
+				if (textArray[1] === '2') {
 					this.collectTransferToWallxFields(req, res, textArray);
-				} else if (textArray[1] === '2') {
-					this.collectTransferToBankFields(req, res, textArray);
 				} else if (textArray[1] === '3') {
-					this.collectBuyAirtimeFields(req, res, textArray);
+					this.collectTransferToBankFields(req, res, textArray);
 				} else if (textArray[1] === '4') {
+					this.collectBuyAirtimeFields(req, res, textArray);
+				} else if (textArray[1] === '5') {
 					this.checkWalletBalance(req, res, textArray);
 				} else {
 					utils.sendResponse(res, `END Invalid Choice`);
@@ -103,7 +113,29 @@ class Menu {
 			if (response.status) {
 				utils.sendResponse(res, `END ${response.message}`);
 				utils.terminateSession(req.body.sessionId);
-				// TODO: send sms
+
+				// Get wallet balance
+				const walletBalance = await api.sendGetRequest(
+					`/customerwalletbalance/?userid=${req.authentication.userID}`,
+					req.authentication
+				);
+				if (walletBalance.status) {
+					// send sms
+					const sms = new SMS();
+					const smsText = `Your wallet balances are:
+					NGN: ${sms.data.NGN}
+					USD: ${sms.data.USD}`;
+					const smsResponse = await sms.send(req.body.phoneNumber, smsText);
+					if (smsResponse) {
+						logger.info(smsResponse);
+						console.log('message sent: ', smsResponse);
+					} else {
+						logger.error({
+							message: 'message sending failed',
+							error: smsResponse,
+						});
+					}
+				}
 			} else {
 				utils.sendResponse(
 					res,
@@ -260,10 +292,28 @@ class Menu {
 					utils.sendResponse(res, `END Transfer successful`);
 					utils.terminateSession(req.body.sessionId);
 
-					// TODO: Send sms of user's balance
-					const walletBalance = api.sendGetRequest(
-						`/customerwalletbalance/?userid=${req.authentication.userID}`
+					// Get wallet balance
+					const walletBalance = await api.sendGetRequest(
+						`/customerwalletbalance/?userid=${req.authentication.userID}`,
+						req.authentication
 					);
+					if (walletBalance.status) {
+						// send sms
+						const sms = new SMS();
+						const smsText = `Your wallet balances are:
+					NGN: ${sms.data.NGN}
+					USD: ${sms.data.USD}`;
+						const smsResponse = await sms.send(req.body.phoneNumber, smsText);
+						if (smsResponse) {
+							logger.info(smsResponse);
+							console.log('message sent: ', smsResponse);
+						} else {
+							logger.error({
+								message: 'message sending failed',
+								error: smsResponse,
+							});
+						}
+					}
 					console.log('wallet balance: ', walletBalance);
 				}
 			}
@@ -302,7 +352,29 @@ class Menu {
 				utils.sendResponse(res, `END ${response.message}`);
 				logger.info(response);
 				utils.terminateSession(req.body.sessionId);
-				// TODO: send sms
+
+				// Get wallet balance
+				const walletBalance = await api.sendGetRequest(
+					`/customerwalletbalance/?userid=${req.authentication.userID}`,
+					req.authentication
+				);
+				if (walletBalance.status) {
+					// send sms
+					const sms = new SMS();
+					const smsText = `Your wallet balances are:
+					NGN: ${sms.data.NGN}
+					USD: ${sms.data.USD}`;
+					const smsResponse = await sms.send(req.body.phoneNumber, smsText);
+					if (smsResponse) {
+						logger.info(smsResponse);
+						console.log('message sent: ', smsResponse);
+					} else {
+						logger.error({
+							message: 'message sending failed',
+							error: smsResponse,
+						});
+					}
+				}
 			} else {
 				utils.sendResponse(
 					res,
@@ -356,11 +428,10 @@ class Menu {
 			const response = await api.sendGetRequest(
 				`/agentcustomerdetails/?walletID=${textArray[1]}`
 			);
+			let text = '';
 			if (response.status) {
-				let smsData;
 				if (textArray[2] === '1') {
-					smsData = {
-						text: `
+					text = `
 						Customer ID: ${response.data.userid}
 						Name: ${response.data.fullname}
 						Description: ${response.data.description}
@@ -369,22 +440,18 @@ class Menu {
 						Next of Kin: ${response.data.nextofkin}
 						Next of Kin's Phone Number: ${response.data.nextofkinphone}
 						Amount: ${response.data.amount}
-						Payment Frequency: ${response.data.frequency}`,
-					};
+						Payment Frequency: ${response.data.frequency}`;
 				}
+
 				if (textArray[2] === '2') {
-					smsData = {
-						text: `
+					text = `
 						Total Received: ${response.totalrecieved}
 						Total Disbursed: ${response.totaldisbursed}
-						Available Balance: ${response.totalrecieved - response.totaldisbursed}
-						`,
-					};
+						Available Balance: ${response.totalrecieved - response.totaldisbursed}`;
 				}
-				console.log(smsData);
-				utils.sendResponse(res, `END ${smsData.text}`);
+				console.log(text);
+				utils.sendResponse(res, `END ${text}`);
 				utils.terminateSession(req.body.sessionId);
-				// TODO: Send sms to user
 				return;
 			}
 
@@ -506,7 +573,6 @@ class Menu {
 					`END A payment link would be sent to you via SMS`
 				);
 				utils.terminateSession(req.body.sessionId);
-				// TODO: Send sms
 			} else {
 				// invalid choice
 				utils.terminateSession(req.body.sessionId);
@@ -609,22 +675,53 @@ class Menu {
 			utils.sendResponse(res, `CON Enter complaint`);
 		}
 
-		if (count == 3) {
+		if (count === 3) {
+			// login the user
+			textArray.splice(0, count - 2);
+			await this.loginMenu(textArray, req, res);
+		}
+
+		if (count === 4) {
+			// continue login process
+			textArray.splice(0, count - 3);
+			await this.loginMenu(textArray, req, res);
+		}
+
+		if (count === 5) {
+			// continue login process and send data to backend
+			textArray.splice(0, count - 4);
+			await this.loginMenu(textArray, req, res);
+
+			const sessionDetails = await getSession(req);
 			const data = {
-				userID: req.authentication.userID,
-				reviewtype: options[textArray[1]],
-				review: textArray[2],
+				userID: sessionDetails.userID,
+				reviewtype: options[textArray[0]],
+				review: textArray[1],
 			};
+
+			console.log(data);
 
 			const response = await api.sendPostRequest(
 				data,
 				'/customercomplaint/',
-				req.authentication
+				sessionDetails
 			);
 
 			if (response.status) {
 				utils.sendResponse(res, `END Complaint made successfully`);
 				utils.terminateSession(req.body.sessionId);
+				const sms = new SMS();
+				const smsText = `Thank you for reaching out to us. Our customer support team will respond to you within 24 hours.\nRegards,\n Wallx Team`;
+				const smsResponse = await sms.send(req.body.phoneNumber, smsText);
+				if (smsResponse) {
+					logger.info(smsResponse);
+					console.log('message sent: ', smsResponse);
+				} else {
+					logger.error({
+						message: 'message sending failed',
+						error: smsResponse,
+					});
+				}
 				return;
 			}
 
@@ -823,7 +920,20 @@ class Menu {
 				);
 				logger.info(response);
 				utils.terminateSession(req.body.sessionId);
-				// TODO: send sms
+				// send sms
+				console.log('sending sms');
+				const sms = new SMS();
+				const smsText = `Thank you for registering with Wallx. You can now use all the USSD features with your account details.\nVisit the playstore or appstore and download our app.`;
+				const smsResponse = await sms.send(req.body.phoneNumber, smsText);
+				if (smsResponse) {
+					logger.info(smsResponse);
+					console.log('message sent: ', smsResponse);
+				} else {
+					logger.error({
+						message: 'message sending failed',
+						error: smsResponse,
+					});
+				}
 			} else {
 				utils.sendResponse(
 					res,
@@ -845,6 +955,7 @@ class Menu {
 	 * @returns
 	 */
 	async loginMenu(textArray, req, res) {
+		console.log(textArray);
 		const count = textArray.length;
 		if (count === 2) {
 			utils.sendResponse(res, `CON Enter your phone number`);
