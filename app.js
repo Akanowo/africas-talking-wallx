@@ -40,6 +40,7 @@ app.post(
 		 * @param {*} res
 		 */
 		async (req, res) => {
+			console.log('request body: ', req.body);
 			const createdSession = await createSession(req);
 			let { sessionId, serviceCode, phoneNumber, text } = req.body;
 
