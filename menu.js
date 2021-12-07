@@ -91,6 +91,9 @@ class Menu {
 		}
 
 		if (count === 7) {
+			const commission = await api.sendGetRequest(
+				`/chargedetails/?chargetype=nairatransfer&amount=${textArray[5]}`
+			);
 			const data = {
 				userID: req.authentication.userID,
 				recieverwalletId: textArray[4],
@@ -98,7 +101,7 @@ class Menu {
 				walletpin: textArray[6],
 				description: '',
 				transactiontype: 'wallet',
-				commission: '50',
+				commission: commission.data,
 				currency: 'NGN',
 			};
 
@@ -122,9 +125,12 @@ class Menu {
 				if (walletBalance.status) {
 					// send sms
 					const sms = new SMS();
-					const smsText = `Your wallet balances are:
-					NGN: ${sms.data.NGN}
-					USD: ${sms.data.USD}`;
+					const smsText = `Wallx Debit
+					NGN${textArray[5]}
+					Desc: WALLET TO WALLET TRANSFER
+					Balance:
+					NGN: ${walletBalance.data.NGN}
+					USD: ${walletBalance.data.USD}`;
 					const smsResponse = await sms.send(req.body.phoneNumber, smsText);
 					if (smsResponse) {
 						logger.info(smsResponse);
@@ -300,9 +306,7 @@ class Menu {
 					if (walletBalance.status) {
 						// send sms
 						const sms = new SMS();
-						const smsText = `Your wallet balances are:
-					NGN: ${sms.data.NGN}
-					USD: ${sms.data.USD}`;
+						const smsText = `Wallx Debit\nNGN${textArray[4]}\nDesc: WALLET TO BANK TRANSFER\nBalance:\nNGN: ${walletBalance.data.NGN}\nUSD: ${walletBalance.data.USD}`;
 						const smsResponse = await sms.send(req.body.phoneNumber, smsText);
 						if (smsResponse) {
 							logger.info(smsResponse);
@@ -361,9 +365,7 @@ class Menu {
 				if (walletBalance.status) {
 					// send sms
 					const sms = new SMS();
-					const smsText = `Your wallet balances are:
-					NGN: ${sms.data.NGN}
-					USD: ${sms.data.USD}`;
+					const smsText = `Wallx Debit\nNGN${textArray[5]}\nDesc: AIRTIME PURCHACE\nBalance:\nNGN: ${walletBalance.data.NGN}\nUSD: ${walletBalance.data.USD}`;
 					const smsResponse = await sms.send(req.body.phoneNumber, smsText);
 					if (smsResponse) {
 						logger.info(smsResponse);
@@ -711,7 +713,7 @@ class Menu {
 				utils.sendResponse(res, `END Complaint made successfully`);
 				utils.terminateSession(req.body.sessionId);
 				const sms = new SMS();
-				const smsText = `Thank you for reaching out to us. Our customer support team will respond to you within 24 hours.\nRegards,\n Wallx Team`;
+				const smsText = `Thank you for reaching out to us. Our customer support team will respond to you within 24 hours.\nRegards,\nWallx Team`;
 				const smsResponse = await sms.send(req.body.phoneNumber, smsText);
 				if (smsResponse) {
 					logger.info(smsResponse);
