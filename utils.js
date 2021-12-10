@@ -13,6 +13,19 @@ module.exports.VERIFYME_BASE_URI = `https://vapi.verifyme.ng`;
 
 module.exports.VERIFYME_TEST_NUMBER = '10000000001';
 
+function generateRandomNumber() {
+	const numbers = '1234567890';
+	let reference = '';
+	for (let i = 0; i < 11; i++) {
+		const randNum = Math.floor(Math.random() * 10);
+		reference += numbers[randNum];
+	}
+
+	return reference;
+}
+
+module.exports.generateRandomNumber = generateRandomNumber;
+
 module.exports.sendResponse = (res, text) => {
 	res.setHeader('Content-Type', 'text/plain');
 	res.send(text);
