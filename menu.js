@@ -54,6 +54,7 @@ class Menu {
 					accessToken: session.accessToken,
 					refreshToken: session.refreshToken,
 					userID: session.userID,
+					loggedInPhone: session.loggedInPhone,
 				};
 				if (!session) {
 					utils.sendResponse(res, `END An error occured`);
@@ -125,13 +126,19 @@ class Menu {
 				if (walletBalance.status) {
 					// send sms
 					const sms = new SMS();
-					const smsText = `Wallx Debit
-					NGN${textArray[5]}
-					Desc: WALLET TO WALLET TRANSFER
-					Balance:
-					NGN: ${walletBalance.data.NGN}
-					USD: ${walletBalance.data.USD}`;
-					const smsResponse = await sms.send(req.body.phoneNumber, smsText);
+					const smsText = `Wallx Debit\nNGN${
+						textArray[5]
+					}\nDesc: WALLET TO WALLET TRANSFER\nBalance:\nNGN: ${new Intl.NumberFormat(
+						'en-NG',
+						{ currency: 'NGN', style: 'currency' }
+					).format(walletBalance.data.NGN)}\nUSD: ${new Intl.NumberFormat(
+						'en-US',
+						{ currency: 'USD', style: 'currency' }
+					).format(walletBalance.data.USD)}`;
+					const smsResponse = await sms.send(
+						req.authentication.loggedInPhone,
+						smsText
+					);
 					if (smsResponse) {
 						logger.info(smsResponse);
 						console.log('message sent: ', smsResponse);
@@ -306,8 +313,19 @@ class Menu {
 					if (walletBalance.status) {
 						// send sms
 						const sms = new SMS();
-						const smsText = `Wallx Debit\nNGN${textArray[4]}\nDesc: WALLET TO BANK TRANSFER\nBalance:\nNGN: ${walletBalance.data.NGN}\nUSD: ${walletBalance.data.USD}`;
-						const smsResponse = await sms.send(req.body.phoneNumber, smsText);
+						const smsText = `Wallx Debit\nNGN${
+							textArray[4]
+						}\nDesc: WALLET TO BANK TRANSFER\nBalance:\nNGN: ${new Intl.NumberFormat(
+							'en-NG',
+							{ currency: 'NGN', style: 'currency' }
+						).format(walletBalance.data.NGN)}\nUSD: ${new Intl.NumberFormat(
+							'en-US',
+							{ currency: 'USD', style: 'currency' }
+						).format(walletBalance.data.USD)}`;
+						const smsResponse = await sms.send(
+							req.authentication.loggedInPhone,
+							smsText
+						);
 						if (smsResponse) {
 							logger.info(smsResponse);
 							console.log('message sent: ', smsResponse);
@@ -342,10 +360,11 @@ class Menu {
 				amount: Number.parseInt(textArray[5]),
 				recurrence: 'ONCE',
 				biller_name: 'AIRTIME',
-				reference: `rave-${uniqid()}`,
-				userID: 1,
+				reference: `rave-${utils.generateRandomNumber()}`,
 				method: 'wallet',
 			};
+
+			console.log(data);
 
 			const response = await api.sendPostRequest(
 				data,
@@ -365,8 +384,19 @@ class Menu {
 				if (walletBalance.status) {
 					// send sms
 					const sms = new SMS();
-					const smsText = `Wallx Debit\nNGN${textArray[5]}\nDesc: AIRTIME PURCHACE\nBalance:\nNGN: ${walletBalance.data.NGN}\nUSD: ${walletBalance.data.USD}`;
-					const smsResponse = await sms.send(req.body.phoneNumber, smsText);
+					const smsText = `Wallx Debit\nNGN${
+						textArray[5]
+					}\nDesc: AIRTIME PURCHACE\nBalance:\nNGN: ${new Intl.NumberFormat(
+						'en-NG',
+						{ currency: 'NGN', style: 'currency' }
+					).format(walletBalance.data.NGN)}\nUSD: ${new Intl.NumberFormat(
+						'en-US',
+						{ currency: 'USD', style: 'currency' }
+					).format(walletBalance.data.USD)}`;
+					const smsResponse = await sms.send(
+						req.authentication.loggedInPhone,
+						smsText
+					);
 					if (smsResponse) {
 						logger.info(smsResponse);
 						console.log('message sent: ', smsResponse);
@@ -405,8 +435,14 @@ class Menu {
 		utils.sendResponse(
 			res,
 			`END Your wallet balance is
-		NGN: ${response.data.NGN}
-		USD: ${response.data.USD}`
+		NGN: ${new Intl.NumberFormat('en-NG', {
+			currency: 'NGN',
+			style: 'currency',
+		}).format(response.data.NGN)}
+		USD: ${new Intl.NumberFormat('en-US', {
+			currency: 'USD',
+			style: 'currency',
+		}).format(response.data.USD)}`
 		);
 		utils.terminateSession(req.body.sessionId);
 	}
@@ -447,9 +483,18 @@ class Menu {
 
 				if (textArray[2] === '2') {
 					text = `
-						Total Received: ${response.totalrecieved}
-						Total Disbursed: ${response.totaldisbursed}
-						Available Balance: ${response.totalrecieved - response.totaldisbursed}`;
+						Total Received: ${new Intl.NumberFormat('en-NG', {
+							style: 'currency',
+							currency: 'NGN',
+						}).format(response.totalrecieved)}
+						Total Disbursed: ${new Intl.NumberFormat('en-NG', {
+							style: 'currency',
+							currency: 'NGN',
+						}).format(response.totaldisbursed)}
+						Available Balance: ${new Intl.NumberFormat('en-NG', {
+							style: 'currency',
+							currency: 'NGN',
+						}).format(response.totalrecieved - response.totaldisbursed)}`;
 				}
 				console.log(text);
 				utils.sendResponse(res, `END ${text}`);
@@ -537,8 +582,15 @@ class Menu {
 				Description: ${campaign.groupdecription}
 				Start date: ${campaign.startdate}
 				End date: ${campaign.enddate}
-				Amount per person: ${campaign.amountperperson}
-				Total Contributions: ${campaign.totalcontribution}`;
+				Total donations: ${campaign.numberofdonors}
+				Campaign Target: ${new Intl.NumberFormat('en-NG', {
+					currency: 'NGN',
+					style: 'currency',
+				}).format(campaign.target)}
+				Total Contributions: ${new Intl.NumberFormat('en-NG', {
+					currency: 'NGN',
+					style: 'currency',
+				}).format(campaign.totalcontribution)}`;
 				utils.sendResponse(res, text);
 				utils.terminateSession(req.body.sessionId);
 			} else {
@@ -712,9 +764,13 @@ class Menu {
 			if (response.status) {
 				utils.sendResponse(res, `END Complaint made successfully`);
 				utils.terminateSession(req.body.sessionId);
+				// send sms
 				const sms = new SMS();
 				const smsText = `Thank you for reaching out to us. Our customer support team will respond to you within 24 hours.\nRegards,\nWallx Team`;
-				const smsResponse = await sms.send(req.body.phoneNumber, smsText);
+				const smsResponse = await sms.send(
+					sessionDetails.loggedInPhone,
+					smsText
+				);
 				if (smsResponse) {
 					logger.info(smsResponse);
 					console.log('message sent: ', smsResponse);
@@ -926,7 +982,10 @@ class Menu {
 				console.log('sending sms');
 				const sms = new SMS();
 				const smsText = `Thank you for registering with Wallx. You can now use all the USSD features with your account details.\nVisit the playstore or appstore and download our app.`;
-				const smsResponse = await sms.send(req.body.phoneNumber, smsText);
+				const smsResponse = await sms.send(
+					req.authentication.loggedInPhone,
+					smsText
+				);
 				if (smsResponse) {
 					logger.info(smsResponse);
 					console.log('message sent: ', smsResponse);
@@ -982,6 +1041,7 @@ class Menu {
 					accessToken: response.token,
 					refreshToken: response.refresh,
 					userID: response.data.id,
+					loggedInPhone: response.data.phonenumber.replace('0', '+234'),
 				});
 
 				if (!updatedSession) {
