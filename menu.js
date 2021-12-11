@@ -356,11 +356,11 @@ class Menu {
 			const data = {
 				userID: req.authentication.userID,
 				country: 'NG',
-				customer: `234${textArray[4]}`,
+				customer: `${textArray[4].replace('0', '+234')}`,
 				amount: Number.parseInt(textArray[5]),
 				recurrence: 'ONCE',
 				biller_name: 'AIRTIME',
-				reference: `rave-${utils.generateRandomNumber()}`,
+				reference: `${utils.generateRandomNumber()}`,
 				method: 'wallet',
 			};
 
