@@ -92,9 +92,6 @@ class Menu {
 		}
 
 		if (count === 7) {
-			const commission = await api.sendGetRequest(
-				`/chargedetails/?chargetype=nairatransfer&amount=${textArray[5]}`
-			);
 			const data = {
 				userID: req.authentication.userID,
 				recieverwalletId: textArray[4],
@@ -102,7 +99,7 @@ class Menu {
 				walletpin: textArray[6],
 				description: '',
 				transactiontype: 'wallet',
-				commission: commission.data,
+				commission: 0,
 				currency: 'NGN',
 			};
 
