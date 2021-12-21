@@ -16,6 +16,7 @@ class Menu {
 
 	authenticatedMenu(res) {
 		const text = `CON Choose an option
+
 		1. Wallet
 		2. Thrift Savings
 		3. Raise a fund
@@ -160,9 +161,6 @@ class Menu {
 		const count = textArray.length;
 		console.log(count);
 		let text = '';
-		// Pagination
-		let page = 1;
-		const limit = 8;
 
 		if (count === 4) {
 			utils.sendResponse(res, `CON Enter Amount`);
@@ -177,10 +175,8 @@ class Menu {
 		if (count === 6) {
 			// fetch banks
 			const banks = await api.fetchBanks();
-			const startIndex = (page - 1) * limit;
-			const endIndex = page * limit;
 
-			const banksToShow = banks.slice(startIndex, endIndex).map((x) => x.name);
+			const banksToShow = banks.map((x) => x.name);
 			console.log(banksToShow);
 			for (let i = 0; i < banksToShow.length; i++) {
 				text += `${i + 1} ${banksToShow[i]}\n`;
@@ -188,153 +184,113 @@ class Menu {
 
 			utils.sendResponse(
 				res,
-				'CON Select a bank \n' +
-					text +
-					`${endIndex >= banks.length ? '' : '97. Next\n99. Go To Main Menu'}`
+				'CON Select a bank \n' + text + '98. Go Back\n99. Go To Main Menu'
 			);
 		} else {
-			// get the last item entered
-			const lastItem = textArray[count - 1];
-			if (lastItem === utils.NEXT) {
-				// Go to next page of bank list
+			const lastItem = Number.parseInt(textArray[count - 1]);
+			const banks = await api.fetchBanks();
 
-				// get the number of nexts
-				const nexts = textArray.filter((x) => x === utils.NEXT);
-				const nextsCount = nexts.length;
+			const selectedBank = banks[lastItem - 1];
+			if (selectedBank) {
+				console.log(selectedBank);
+				const verificationData = {
+					account_number: textArray[5],
+					code: selectedBank.code,
+				};
 
-				page = page + nextsCount;
-				const banks = await api.fetchBanks();
-				console.log(banks.length);
-				const startIndex = (page - 1) * limit;
-				const endIndex = page * limit;
+				const response = await api.verifyBankDetails(
+					verificationData,
+					req.body.sessionId
+				);
 
-				const banksToShow = banks
-					.slice(startIndex, endIndex)
-					.map((x) => x.name);
-				console.log(banksToShow);
-
-				for (let i = 0; i < banksToShow.length; i++) {
-					// get index of bank
-					const bankIndex = banks.findIndex((x) => x.name === banksToShow[i]);
-					text += `${bankIndex + 1} ${banksToShow[i]}\n`;
+				if (!response) {
+					utils.sendResponse(
+						res,
+						'END Could not resolve account name. Check parameters or try again'
+					);
+					utils.terminateSession(req.body.sessionId);
+					return;
 				}
 
-				utils.sendResponse(
-					res,
-					'CON ' +
-						text +
-						`${
-							endIndex >= banks.length
-								? ''
-								: '97. Next\n98. Go Back\n99. Go To Main Menu'
-						}`
-				);
-			} else {
-				const lastItem = Number.parseInt(textArray[count - 1]);
-				const banks = await api.fetchBanks();
-
-				const selectedBank = banks[lastItem - 1];
-				if (selectedBank) {
-					console.log(selectedBank);
-					const verificationData = {
-						account_number: textArray[5],
-						code: selectedBank.code,
-					};
-
-					const response = await api.verifyBankDetails(
-						verificationData,
-						req.body.sessionId
-					);
-
-					if (!response) {
-						utils.sendResponse(
-							res,
-							'END Could not resolve account name. Check parameters or try again'
-						);
-						utils.terminateSession(req.body.sessionId);
-						return;
-					}
-
-					text = `CON Account Number: ${response.account_number}
+				text = `CON Account Number: ${response.account_number}
 					Account Name: ${response.account_name}
 					
 					Enter wallet pin`;
 
-					utils.sendResponse(res, text);
-				} else {
-					const accountDetails = await Account.findOne({
-						accountNumber: textArray[5],
-					});
-					const commission = await api.sendGetRequest(
-						`/chargedetails/?chargetype=nairatransfer&amount=${textArray[4]}`
+				utils.sendResponse(res, text);
+			} else {
+				const accountDetails = await Account.findOne({
+					accountNumber: textArray[5],
+				});
+				const commission = await api.sendGetRequest(
+					`/chargedetails/?chargetype=nairatransfer&amount=${textArray[4]}`
+				);
+				const sessionDetails = await getSession(req);
+				console.log(sessionDetails);
+				const data = {
+					userID: sessionDetails.userID,
+					account_bank: accountDetails.account_code,
+					account_number: textArray[5],
+					amount: textArray[4],
+					walletpin: textArray[count - 1],
+					description: '',
+					transactiontype: 'bank',
+					commission: commission.data,
+					currency: 'NGN',
+				};
+
+				console.log('API DATA: ', data);
+
+				const response = await api.sendPostRequest(
+					data,
+					'/customertransaction/',
+					req.authentication
+				);
+				if (!response.status) {
+					utils.sendResponse(
+						res,
+						'END ' +
+							`${response.detail || response.message || 'An error occured'}`
 					);
-					const sessionDetails = await getSession(req);
-					console.log(sessionDetails);
-					const data = {
-						userID: sessionDetails.userID,
-						account_bank: accountDetails.account_code,
-						account_number: textArray[5],
-						amount: textArray[4],
-						walletpin: textArray[count - 1],
-						description: '',
-						transactiontype: 'bank',
-						commission: commission.data,
-						currency: 'NGN',
-					};
-
-					console.log('API DATA: ', data);
-
-					const response = await api.sendPostRequest(
-						data,
-						'/customertransaction/',
-						req.authentication
-					);
-					if (!response.status) {
-						utils.sendResponse(
-							res,
-							'END ' +
-								`${response.detail || response.message || 'An error occured'}`
-						);
-						utils.terminateSession(req.body.sessionId);
-						return;
-					}
-
-					utils.sendResponse(res, `END Transfer successful`);
 					utils.terminateSession(req.body.sessionId);
-
-					// Get wallet balance
-					const walletBalance = await api.sendGetRequest(
-						`/customerwalletbalance/?userid=${req.authentication.userID}`,
-						req.authentication
-					);
-					if (walletBalance.status) {
-						// send sms
-						const sms = new SMS();
-						const smsText = `Wallx Debit\nNGN${
-							textArray[4]
-						}\nDesc: WALLET TO BANK TRANSFER\nBalance:\nNGN: ${new Intl.NumberFormat(
-							'en-NG',
-							{ currency: 'NGN', style: 'currency' }
-						).format(walletBalance.data.NGN)}\nUSD: ${new Intl.NumberFormat(
-							'en-US',
-							{ currency: 'USD', style: 'currency' }
-						).format(walletBalance.data.USD)}`;
-						const smsResponse = await sms.send(
-							req.authentication.loggedInPhone,
-							smsText
-						);
-						if (smsResponse) {
-							logger.info(smsResponse);
-							console.log('message sent: ', smsResponse);
-						} else {
-							logger.error({
-								message: 'message sending failed',
-								error: smsResponse,
-							});
-						}
-					}
-					console.log('wallet balance: ', walletBalance);
+					return;
 				}
+
+				utils.sendResponse(res, `END Transfer successful`);
+				utils.terminateSession(req.body.sessionId);
+
+				// Get wallet balance
+				const walletBalance = await api.sendGetRequest(
+					`/customerwalletbalance/?userid=${req.authentication.userID}`,
+					req.authentication
+				);
+				if (walletBalance.status) {
+					// send sms
+					const sms = new SMS();
+					const smsText = `Wallx Debit\nNGN${
+						textArray[4]
+					}\nDesc: WALLET TO BANK TRANSFER\nBalance:\nNGN: ${new Intl.NumberFormat(
+						'en-NG',
+						{ currency: 'NGN', style: 'currency' }
+					).format(walletBalance.data.NGN)}\nUSD: ${new Intl.NumberFormat(
+						'en-US',
+						{ currency: 'USD', style: 'currency' }
+					).format(walletBalance.data.USD)}`;
+					const smsResponse = await sms.send(
+						req.authentication.loggedInPhone,
+						smsText
+					);
+					if (smsResponse) {
+						logger.info(smsResponse);
+						console.log('message sent: ', smsResponse);
+					} else {
+						logger.error({
+							message: 'message sending failed',
+							error: smsResponse,
+						});
+					}
+				}
+				console.log('wallet balance: ', walletBalance);
 			}
 		}
 	}
@@ -342,7 +298,7 @@ class Menu {
 	async collectBuyAirtimeFields(req, res, textArray) {
 		const count = textArray.length;
 		if (count === 4) {
-			utils.sendResponse(res, `CON Enter phone number, eg 070xxxx`);
+			utils.sendResponse(res, `CON Enter phone number to recharge, eg 070xxxx`);
 		}
 
 		if (count === 5) {
@@ -835,15 +791,17 @@ class Menu {
 			// verify bvn
 			// TODO: Change static data to user's data in production
 			const verificationData = {
-				firstname: 'John',
-				lastname: 'Doe',
-				phone: '080000000000',
-				dob: options[textArray[1]] === 'BVN' ? '04-04-1944' : '09-04-1997',
+				firstname: textArray[3],
+				lastname: textArray[4],
+				phone: textArray[6],
+				dob: textArray[5],
 			};
+
+			console.log(verificationData);
 			const response = await api.verifyDetails(
 				options[textArray[1]],
-				'10000000001',
-				// textArray[2],
+				// '10000000001',
+				textArray[2],
 				verificationData
 			);
 			console.log(response);
@@ -899,7 +857,12 @@ class Menu {
 				utils.sendResponse(res, text);
 			} else {
 				utils.terminateSession(req.body.sessionId);
-				utils.sendResponse(res, `END Incorrect ${options[textArray[1]]}`);
+				utils.sendResponse(
+					res,
+					`END Incorrect ${options[textArray[1]]} or ${
+						options[textArray[1]]
+					} data incorrect`
+				);
 			}
 		}
 
