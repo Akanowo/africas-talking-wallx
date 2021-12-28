@@ -15,12 +15,7 @@ class Menu {
 	}
 
 	authenticatedMenu(res) {
-		const text = `CON Choose an option
-
-		1. Wallet
-		2. Thrift Savings
-		3. Raise a fund
-		4. Report an issue`;
+		const text = `CON Welcome to Wallx Africa. Choose an option\n\n1. Wallet\n2. Thrift Savings\n3. Raise a fund\n4. Report an issue`;
 
 		utils.sendResponse(res, text);
 	}
@@ -28,14 +23,7 @@ class Menu {
 	async walletMenu(req, res, textArray) {
 		const count = textArray.length;
 		if (count === 1) {
-			const text = `CON Choose an option
-			1. Create a Wallx Account
-			2. Transfer to Wallx
-			3. Transfer to Bank
-			4. Buy Airtime
-			5. Check Wallet Balance
-			98. Go Back
-			99. Go To Main Menu`;
+			const text = `CON Choose an option\n1. Create a Wallx Account\n2. Transfer to Wallx\n3. Transfer to Bank\n4. Buy Airtime\n5. Check Wallet Balance\n98. Go Back\n99. Go To Main Menu`;
 			utils.sendResponse(res, text);
 		} else {
 			if (textArray[1] === '1') {
@@ -212,10 +200,7 @@ class Menu {
 					return;
 				}
 
-				text = `CON Account Number: ${response.account_number}
-					Account Name: ${response.account_name}
-					
-					Enter wallet pin`;
+				text = `CON Account Number: ${response.account_number}\nAccount Name: ${response.account_name}\n\nEnter wallet pin`;
 
 				utils.sendResponse(res, text);
 			} else {
@@ -387,15 +372,13 @@ class Menu {
 
 		utils.sendResponse(
 			res,
-			`END Your wallet balance is
-		NGN: ${new Intl.NumberFormat('en-NG', {
-			currency: 'NGN',
-			style: 'currency',
-		}).format(response.data.NGN)}
-		USD: ${new Intl.NumberFormat('en-US', {
-			currency: 'USD',
-			style: 'currency',
-		}).format(response.data.USD)}`
+			`END Your wallet balance is\nNGN: ${new Intl.NumberFormat('en-NG', {
+				currency: 'NGN',
+				style: 'currency',
+			}).format(response.data.NGN)}\nUSD: ${new Intl.NumberFormat('en-US', {
+				currency: 'USD',
+				style: 'currency',
+			}).format(response.data.USD)}`
 		);
 		utils.terminateSession(req.body.sessionId);
 	}
@@ -409,9 +392,7 @@ class Menu {
 		if (count === 2) {
 			utils.sendResponse(
 				res,
-				`CON Select one
-			1. Check Your Profile Information
-			2. Check Saving Status`
+				`CON Select one\n1. Check Your Profile Information\n2. Check Saving Status`
 			);
 		}
 
@@ -422,32 +403,24 @@ class Menu {
 			let text = '';
 			if (response.status) {
 				if (textArray[2] === '1') {
-					text = `
-						Customer ID: ${response.data.userid}
-						Name: ${response.data.fullname}
-						Description: ${response.data.description}
-						Location: ${response.data.location}
-						Start Date: ${response.data.startdate}
-						Next of Kin: ${response.data.nextofkin}
-						Next of Kin's Phone Number: ${response.data.nextofkinphone}
-						Amount: ${response.data.amount}
-						Payment Frequency: ${response.data.frequency}`;
+					text = `Customer ID: ${response.data.userid}\nName: ${response.data.fullname}\nDescription: ${response.data.description}\nLocation: ${response.data.location}\nStart Date: ${response.data.startdate}\nNext of Kin: ${response.data.nextofkin}\nNext of Kin's Phone Number: ${response.data.nextofkinphone}\nAmount: ${response.data.amount}\nPayment Frequency: ${response.data.frequency}`;
 				}
 
 				if (textArray[2] === '2') {
-					text = `
-						Total Received: ${new Intl.NumberFormat('en-NG', {
-							style: 'currency',
-							currency: 'NGN',
-						}).format(response.totalrecieved)}
-						Total Disbursed: ${new Intl.NumberFormat('en-NG', {
-							style: 'currency',
-							currency: 'NGN',
-						}).format(response.totaldisbursed)}
-						Available Balance: ${new Intl.NumberFormat('en-NG', {
-							style: 'currency',
-							currency: 'NGN',
-						}).format(response.totalrecieved - response.totaldisbursed)}`;
+					text = `Total Received: ${new Intl.NumberFormat('en-NG', {
+						style: 'currency',
+						currency: 'NGN',
+					}).format(
+						response.totalrecieved
+					)}\nTotal Disbursed: ${new Intl.NumberFormat('en-NG', {
+						style: 'currency',
+						currency: 'NGN',
+					}).format(
+						response.totaldisbursed
+					)}\nAvailable Balance: ${new Intl.NumberFormat('en-NG', {
+						style: 'currency',
+						currency: 'NGN',
+					}).format(response.totalrecieved - response.totaldisbursed)}`;
 				}
 				console.log(text);
 				utils.sendResponse(res, `END ${text}`);
@@ -493,15 +466,19 @@ class Menu {
 					`/crowdcontributionmodule/?id=${textArray[1]}`,
 					sessionUpdate
 				);
+				console.log(apiResult);
 				if (!apiResult.status) {
 					utils.sendResponse(res, `END ${apiResult.detail}`);
 					utils.terminateSession(req.body.sessionId);
 					return;
 				}
-				const campaign = apiResult.data[0];
-				text = `CON Group Name: ${campaign.groupname.toUpperCase()}
-				1. Donate
-				2. Check contribution status`;
+				const campaign = apiResult.data.data[0];
+				if (!campaign) {
+					utils.sendResponse(res, `END Invalid campaign id`);
+					utils.terminateSession(req.body.sessionId);
+					return;
+				}
+				text = `CON Group Name: ${campaign.groupname.toUpperCase()}\n1. Donate\n2. Check contribution status`;
 				utils.sendResponse(res, text);
 			} else {
 				utils.sendResponse(res, `END An error occured`);
@@ -512,9 +489,7 @@ class Menu {
 		if (count === 3) {
 			// donate
 			if (textArray[2] === '1') {
-				text = `CON Donate From
-				1. Wallet
-				2. Generate Link`;
+				text = `CON Donate From\n1. Wallet\n2. Generate Link`;
 				utils.sendResponse(res, text);
 			} else if (textArray[2] === '2') {
 				// contribution status
@@ -529,18 +504,19 @@ class Menu {
 					utils.terminateSession(req.body.sessionId);
 					return;
 				}
-				const campaign = apiResult.data[0];
-				text = `END Group Name: ${campaign.groupname.toUpperCase()}
-				Creator: ${campaign.creatorname}
-				Description: ${campaign.groupdecription}
-				Start date: ${campaign.startdate}
-				End date: ${campaign.enddate}
-				Total donations: ${campaign.numberofdonors}
-				Campaign Target: ${new Intl.NumberFormat('en-NG', {
+				const campaign = apiResult.data.data[0];
+				text = `END Group Name: ${campaign.groupname.toUpperCase()}\nCreator: ${
+					campaign.creatorname
+				}\nDescription: ${campaign.groupdecription}\nStart date: ${
+					campaign.startdate
+				}\nEnd date: ${campaign.enddate}\nTotal donations: ${
+					campaign.numberofdonors
+				}\nCampaign Target: ${new Intl.NumberFormat('en-NG', {
 					currency: 'NGN',
 					style: 'currency',
-				}).format(campaign.target)}
-				Total Contributions: ${new Intl.NumberFormat('en-NG', {
+				}).format(
+					campaign.target
+				)}\nTotal Contributions: ${new Intl.NumberFormat('en-NG', {
 					currency: 'NGN',
 					style: 'currency',
 				}).format(campaign.totalcontribution)}`;
@@ -662,12 +638,7 @@ class Menu {
 		};
 
 		if (count === 1) {
-			text = `CON Select a category
-			1 Wallets( Transactions, Bank, Airtime)
-			2 Report a Fraud
-			3 Contribution Issues
-			4 Speak to our representative
-			98 Go Back`;
+			text = `CON Select a category\n1 Wallets( Transactions, Bank, Airtime)\n2 Report a Fraud\n3 Contribution Issues\n4 Speak to our representative\n98 Go Back`;
 			utils.sendResponse(res, text);
 		}
 
@@ -750,10 +721,7 @@ class Menu {
 		let text = '';
 
 		if (count === 1) {
-			text = `CON Register with
-			1. ${options['1']}
-			2. ${options['2']}
-			99. Go To Main Menu`;
+			text = `CON Register with\n1. ${options['1']}\n2. ${options['2']}\n99. Go To Main Menu`;
 
 			utils.sendResponse(res, text);
 		}
@@ -789,7 +757,6 @@ class Menu {
 
 		if (count === 7) {
 			// verify bvn
-			// TODO: Change static data to user's data in production
 			const verificationData = {
 				firstname: textArray[3],
 				lastname: textArray[4],

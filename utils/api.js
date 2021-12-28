@@ -71,7 +71,7 @@ class API {
 		}/v1/verifications/identities/${type.toLowerCase()}/${number}`;
 		const config = {
 			headers: {
-				Authorization: `Bearer ${process.env.VERIFYME_TEST_SECRET}`,
+				Authorization: `Bearer ${process.env.VERIFYME_LIVE_SECRET}`,
 			},
 		};
 		let response;
