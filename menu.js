@@ -15,11 +15,7 @@ class Menu {
 	}
 
 	authenticatedMenu(res) {
-		const text = `CON Choose an option
-		1. Wallet
-		2. Thrift Savings
-		3. Raise a fund
-		4. Report an issue`;
+		const text = `CON Welcome to Wallx Africa. Choose an option\n\n1. Wallet\n2. Thrift Savings\n3. Raise a fund\n4. Report an issue`;
 
 		utils.sendResponse(res, text);
 	}
@@ -27,14 +23,7 @@ class Menu {
 	async walletMenu(req, res, textArray) {
 		const count = textArray.length;
 		if (count === 1) {
-			const text = `CON Choose an option
-			1. Create a Wallx Account
-			2. Transfer to Wallx
-			3. Transfer to Bank
-			4. Buy Airtime
-			5. Check Wallet Balance
-			98. Go Back
-			99. Go To Main Menu`;
+			const text = `CON Choose an option\n1. Create a Wallx Account\n2. Transfer to Wallx\n3. Transfer to Bank\n4. Buy Airtime\n5. Check Wallet Balance\n98. Go Back\n99. Go To Main Menu`;
 			utils.sendResponse(res, text);
 		} else {
 			if (textArray[1] === '1') {
@@ -160,9 +149,6 @@ class Menu {
 		const count = textArray.length;
 		console.log(count);
 		let text = '';
-		// Pagination
-		let page = 1;
-		const limit = 8;
 
 		if (count === 4) {
 			utils.sendResponse(res, `CON Enter Amount`);
@@ -177,10 +163,8 @@ class Menu {
 		if (count === 6) {
 			// fetch banks
 			const banks = await api.fetchBanks();
-			const startIndex = (page - 1) * limit;
-			const endIndex = page * limit;
 
-			const banksToShow = banks.slice(startIndex, endIndex).map((x) => x.name);
+			const banksToShow = banks.map((x) => x.name);
 			console.log(banksToShow);
 			for (let i = 0; i < banksToShow.length; i++) {
 				text += `${i + 1} ${banksToShow[i]}\n`;
@@ -188,153 +172,110 @@ class Menu {
 
 			utils.sendResponse(
 				res,
-				'CON Select a bank \n' +
-					text +
-					`${endIndex >= banks.length ? '' : '97. Next\n99. Go To Main Menu'}`
+				'CON Select a bank \n' + text + '98. Go Back\n99. Go To Main Menu'
 			);
 		} else {
-			// get the last item entered
-			const lastItem = textArray[count - 1];
-			if (lastItem === utils.NEXT) {
-				// Go to next page of bank list
+			const lastItem = Number.parseInt(textArray[count - 1]);
+			const banks = await api.fetchBanks();
 
-				// get the number of nexts
-				const nexts = textArray.filter((x) => x === utils.NEXT);
-				const nextsCount = nexts.length;
+			const selectedBank = banks[lastItem - 1];
+			if (selectedBank) {
+				console.log(selectedBank);
+				const verificationData = {
+					account_number: textArray[5],
+					code: selectedBank.code,
+				};
 
-				page = page + nextsCount;
-				const banks = await api.fetchBanks();
-				console.log(banks.length);
-				const startIndex = (page - 1) * limit;
-				const endIndex = page * limit;
-
-				const banksToShow = banks
-					.slice(startIndex, endIndex)
-					.map((x) => x.name);
-				console.log(banksToShow);
-
-				for (let i = 0; i < banksToShow.length; i++) {
-					// get index of bank
-					const bankIndex = banks.findIndex((x) => x.name === banksToShow[i]);
-					text += `${bankIndex + 1} ${banksToShow[i]}\n`;
-				}
-
-				utils.sendResponse(
-					res,
-					'CON ' +
-						text +
-						`${
-							endIndex >= banks.length
-								? ''
-								: '97. Next\n98. Go Back\n99. Go To Main Menu'
-						}`
+				const response = await api.verifyBankDetails(
+					verificationData,
+					req.body.sessionId
 				);
-			} else {
-				const lastItem = Number.parseInt(textArray[count - 1]);
-				const banks = await api.fetchBanks();
 
-				const selectedBank = banks[lastItem - 1];
-				if (selectedBank) {
-					console.log(selectedBank);
-					const verificationData = {
-						account_number: textArray[5],
-						code: selectedBank.code,
-					};
-
-					const response = await api.verifyBankDetails(
-						verificationData,
-						req.body.sessionId
+				if (!response) {
+					utils.sendResponse(
+						res,
+						'END Could not resolve account name. Check parameters or try again'
 					);
-
-					if (!response) {
-						utils.sendResponse(
-							res,
-							'END Could not resolve account name. Check parameters or try again'
-						);
-						utils.terminateSession(req.body.sessionId);
-						return;
-					}
-
-					text = `CON Account Number: ${response.account_number}
-					Account Name: ${response.account_name}
-					
-					Enter wallet pin`;
-
-					utils.sendResponse(res, text);
-				} else {
-					const accountDetails = await Account.findOne({
-						accountNumber: textArray[5],
-					});
-					const commission = await api.sendGetRequest(
-						`/chargedetails/?chargetype=nairatransfer&amount=${textArray[4]}`
-					);
-					const sessionDetails = await getSession(req);
-					console.log(sessionDetails);
-					const data = {
-						userID: sessionDetails.userID,
-						account_bank: accountDetails.account_code,
-						account_number: textArray[5],
-						amount: textArray[4],
-						walletpin: textArray[count - 1],
-						description: '',
-						transactiontype: 'bank',
-						commission: commission.data,
-						currency: 'NGN',
-					};
-
-					console.log('API DATA: ', data);
-
-					const response = await api.sendPostRequest(
-						data,
-						'/customertransaction/',
-						req.authentication
-					);
-					if (!response.status) {
-						utils.sendResponse(
-							res,
-							'END ' +
-								`${response.detail || response.message || 'An error occured'}`
-						);
-						utils.terminateSession(req.body.sessionId);
-						return;
-					}
-
-					utils.sendResponse(res, `END Transfer successful`);
 					utils.terminateSession(req.body.sessionId);
-
-					// Get wallet balance
-					const walletBalance = await api.sendGetRequest(
-						`/customerwalletbalance/?userid=${req.authentication.userID}`,
-						req.authentication
-					);
-					if (walletBalance.status) {
-						// send sms
-						const sms = new SMS();
-						const smsText = `Wallx Debit\nNGN${
-							textArray[4]
-						}\nDesc: WALLET TO BANK TRANSFER\nBalance:\nNGN: ${new Intl.NumberFormat(
-							'en-NG',
-							{ currency: 'NGN', style: 'currency' }
-						).format(walletBalance.data.NGN)}\nUSD: ${new Intl.NumberFormat(
-							'en-US',
-							{ currency: 'USD', style: 'currency' }
-						).format(walletBalance.data.USD)}`;
-						const smsResponse = await sms.send(
-							req.authentication.loggedInPhone,
-							smsText
-						);
-						if (smsResponse) {
-							logger.info(smsResponse);
-							console.log('message sent: ', smsResponse);
-						} else {
-							logger.error({
-								message: 'message sending failed',
-								error: smsResponse,
-							});
-						}
-					}
-					console.log('wallet balance: ', walletBalance);
+					return;
 				}
+
+				text = `CON Account Number: ${response.account_number}\nAccount Name: ${response.account_name}\n\nEnter wallet pin`;
+
+				utils.sendResponse(res, text);
+			} else {
+				const accountDetails = await Account.findOne({
+					accountNumber: textArray[5],
+				});
+				const commission = await api.sendGetRequest(
+					`/chargedetails/?chargetype=nairatransfer&amount=${textArray[4]}`
+				);
+				const sessionDetails = await getSession(req);
+				console.log(sessionDetails);
+				const data = {
+					userID: sessionDetails.userID,
+					account_bank: accountDetails.account_code,
+					account_number: textArray[5],
+					amount: textArray[4],
+					walletpin: textArray[count - 1],
+					description: '',
+					transactiontype: 'bank',
+					commission: commission.data,
+					currency: 'NGN',
+				};
+
+				console.log('API DATA: ', data);
+
+				const response = await api.sendPostRequest(
+					data,
+					'/customertransaction/',
+					req.authentication
+				);
+				if (!response.status) {
+					utils.sendResponse(
+						res,
+						'END ' +
+							`${response.detail || response.message || 'An error occured'}`
+					);
+					utils.terminateSession(req.body.sessionId);
+					return;
+				}
+
+				utils.sendResponse(res, `END Transfer successful`);
+				utils.terminateSession(req.body.sessionId);
+
+				// Get wallet balance
+				const walletBalance = await api.sendGetRequest(
+					`/customerwalletbalance/?userid=${req.authentication.userID}`,
+					req.authentication
+				);
+				if (walletBalance.status) {
+					// send sms
+					const sms = new SMS();
+					const smsText = `Wallx Debit\nNGN${
+						textArray[4]
+					}\nDesc: WALLET TO BANK TRANSFER\nBalance:\nNGN: ${new Intl.NumberFormat(
+						'en-NG',
+						{ currency: 'NGN', style: 'currency' }
+					).format(walletBalance.data.NGN)}\nUSD: ${new Intl.NumberFormat(
+						'en-US',
+						{ currency: 'USD', style: 'currency' }
+					).format(walletBalance.data.USD)}`;
+					const smsResponse = await sms.send(
+						req.authentication.loggedInPhone,
+						smsText
+					);
+					if (smsResponse) {
+						logger.info(smsResponse);
+						console.log('message sent: ', smsResponse);
+					} else {
+						logger.error({
+							message: 'message sending failed',
+							error: smsResponse,
+						});
+					}
+				}
+				console.log('wallet balance: ', walletBalance);
 			}
 		}
 	}
@@ -342,7 +283,7 @@ class Menu {
 	async collectBuyAirtimeFields(req, res, textArray) {
 		const count = textArray.length;
 		if (count === 4) {
-			utils.sendResponse(res, `CON Enter phone number, eg 070xxxx`);
+			utils.sendResponse(res, `CON Enter phone number to recharge, eg 070xxxx`);
 		}
 
 		if (count === 5) {
@@ -431,15 +372,13 @@ class Menu {
 
 		utils.sendResponse(
 			res,
-			`END Your wallet balance is
-		NGN: ${new Intl.NumberFormat('en-NG', {
-			currency: 'NGN',
-			style: 'currency',
-		}).format(response.data.NGN)}
-		USD: ${new Intl.NumberFormat('en-US', {
-			currency: 'USD',
-			style: 'currency',
-		}).format(response.data.USD)}`
+			`END Your wallet balance is\nNGN: ${new Intl.NumberFormat('en-NG', {
+				currency: 'NGN',
+				style: 'currency',
+			}).format(response.data.NGN)}\nUSD: ${new Intl.NumberFormat('en-US', {
+				currency: 'USD',
+				style: 'currency',
+			}).format(response.data.USD)}`
 		);
 		utils.terminateSession(req.body.sessionId);
 	}
@@ -453,9 +392,7 @@ class Menu {
 		if (count === 2) {
 			utils.sendResponse(
 				res,
-				`CON Select one
-			1. Check Your Profile Information
-			2. Check Saving Status`
+				`CON Select one\n1. Check Your Profile Information\n2. Check Saving Status`
 			);
 		}
 
@@ -466,32 +403,24 @@ class Menu {
 			let text = '';
 			if (response.status) {
 				if (textArray[2] === '1') {
-					text = `
-						Customer ID: ${response.data.userid}
-						Name: ${response.data.fullname}
-						Description: ${response.data.description}
-						Location: ${response.data.location}
-						Start Date: ${response.data.startdate}
-						Next of Kin: ${response.data.nextofkin}
-						Next of Kin's Phone Number: ${response.data.nextofkinphone}
-						Amount: ${response.data.amount}
-						Payment Frequency: ${response.data.frequency}`;
+					text = `Customer ID: ${response.data.userid}\nName: ${response.data.fullname}\nDescription: ${response.data.description}\nLocation: ${response.data.location}\nStart Date: ${response.data.startdate}\nNext of Kin: ${response.data.nextofkin}\nNext of Kin's Phone Number: ${response.data.nextofkinphone}\nAmount: ${response.data.amount}\nPayment Frequency: ${response.data.frequency}`;
 				}
 
 				if (textArray[2] === '2') {
-					text = `
-						Total Received: ${new Intl.NumberFormat('en-NG', {
-							style: 'currency',
-							currency: 'NGN',
-						}).format(response.totalrecieved)}
-						Total Disbursed: ${new Intl.NumberFormat('en-NG', {
-							style: 'currency',
-							currency: 'NGN',
-						}).format(response.totaldisbursed)}
-						Available Balance: ${new Intl.NumberFormat('en-NG', {
-							style: 'currency',
-							currency: 'NGN',
-						}).format(response.totalrecieved - response.totaldisbursed)}`;
+					text = `Total Received: ${new Intl.NumberFormat('en-NG', {
+						style: 'currency',
+						currency: 'NGN',
+					}).format(
+						response.totalrecieved
+					)}\nTotal Disbursed: ${new Intl.NumberFormat('en-NG', {
+						style: 'currency',
+						currency: 'NGN',
+					}).format(
+						response.totaldisbursed
+					)}\nAvailable Balance: ${new Intl.NumberFormat('en-NG', {
+						style: 'currency',
+						currency: 'NGN',
+					}).format(response.totalrecieved - response.totaldisbursed)}`;
 				}
 				console.log(text);
 				utils.sendResponse(res, `END ${text}`);
@@ -537,15 +466,19 @@ class Menu {
 					`/crowdcontributionmodule/?id=${textArray[1]}`,
 					sessionUpdate
 				);
+				console.log(apiResult);
 				if (!apiResult.status) {
 					utils.sendResponse(res, `END ${apiResult.detail}`);
 					utils.terminateSession(req.body.sessionId);
 					return;
 				}
-				const campaign = apiResult.data[0];
-				text = `CON Group Name: ${campaign.groupname.toUpperCase()}
-				1. Donate
-				2. Check contribution status`;
+				const campaign = apiResult.data.data[0];
+				if (!campaign) {
+					utils.sendResponse(res, `END Invalid campaign id`);
+					utils.terminateSession(req.body.sessionId);
+					return;
+				}
+				text = `CON Group Name: ${campaign.groupname.toUpperCase()}\n1. Donate\n2. Check contribution status`;
 				utils.sendResponse(res, text);
 			} else {
 				utils.sendResponse(res, `END An error occured`);
@@ -556,9 +489,7 @@ class Menu {
 		if (count === 3) {
 			// donate
 			if (textArray[2] === '1') {
-				text = `CON Donate From
-				1. Wallet
-				2. Generate Link`;
+				text = `CON Donate From\n1. Wallet\n2. Generate Link`;
 				utils.sendResponse(res, text);
 			} else if (textArray[2] === '2') {
 				// contribution status
@@ -573,18 +504,19 @@ class Menu {
 					utils.terminateSession(req.body.sessionId);
 					return;
 				}
-				const campaign = apiResult.data[0];
-				text = `END Group Name: ${campaign.groupname.toUpperCase()}
-				Creator: ${campaign.creatorname}
-				Description: ${campaign.groupdecription}
-				Start date: ${campaign.startdate}
-				End date: ${campaign.enddate}
-				Total donations: ${campaign.numberofdonors}
-				Campaign Target: ${new Intl.NumberFormat('en-NG', {
+				const campaign = apiResult.data.data[0];
+				text = `END Group Name: ${campaign.groupname.toUpperCase()}\nCreator: ${
+					campaign.creatorname
+				}\nDescription: ${campaign.groupdecription}\nStart date: ${
+					campaign.startdate
+				}\nEnd date: ${campaign.enddate}\nTotal donations: ${
+					campaign.numberofdonors
+				}\nCampaign Target: ${new Intl.NumberFormat('en-NG', {
 					currency: 'NGN',
 					style: 'currency',
-				}).format(campaign.target)}
-				Total Contributions: ${new Intl.NumberFormat('en-NG', {
+				}).format(
+					campaign.target
+				)}\nTotal Contributions: ${new Intl.NumberFormat('en-NG', {
 					currency: 'NGN',
 					style: 'currency',
 				}).format(campaign.totalcontribution)}`;
@@ -706,12 +638,7 @@ class Menu {
 		};
 
 		if (count === 1) {
-			text = `CON Select a category
-			1 Wallets( Transactions, Bank, Airtime)
-			2 Report a Fraud
-			3 Contribution Issues
-			4 Speak to our representative
-			98 Go Back`;
+			text = `CON Select a category\n1 Wallets( Transactions, Bank, Airtime)\n2 Report a Fraud\n3 Contribution Issues\n4 Speak to our representative\n98 Go Back`;
 			utils.sendResponse(res, text);
 		}
 
@@ -794,10 +721,7 @@ class Menu {
 		let text = '';
 
 		if (count === 1) {
-			text = `CON Register with
-			1. ${options['1']}
-			2. ${options['2']}
-			99. Go To Main Menu`;
+			text = `CON Register with\n1. ${options['1']}\n2. ${options['2']}\n99. Go To Main Menu`;
 
 			utils.sendResponse(res, text);
 		}
@@ -833,17 +757,18 @@ class Menu {
 
 		if (count === 7) {
 			// verify bvn
-			// TODO: Change static data to user's data in production
 			const verificationData = {
-				firstname: 'John',
-				lastname: 'Doe',
-				phone: '080000000000',
-				dob: options[textArray[1]] === 'BVN' ? '04-04-1944' : '09-04-1997',
+				firstname: textArray[3],
+				lastname: textArray[4],
+				phone: textArray[6],
+				dob: textArray[5],
 			};
+
+			console.log(verificationData);
 			const response = await api.verifyDetails(
 				options[textArray[1]],
-				'10000000001',
-				// textArray[2],
+				// '10000000001',
+				textArray[2],
 				verificationData
 			);
 			console.log(response);
@@ -899,7 +824,12 @@ class Menu {
 				utils.sendResponse(res, text);
 			} else {
 				utils.terminateSession(req.body.sessionId);
-				utils.sendResponse(res, `END Incorrect ${options[textArray[1]]}`);
+				utils.sendResponse(
+					res,
+					`END Incorrect ${options[textArray[1]]} or ${
+						options[textArray[1]]
+					} data incorrect`
+				);
 			}
 		}
 
