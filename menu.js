@@ -15,7 +15,7 @@ class Menu {
 	}
 
 	authenticatedMenu(res) {
-		const text = `CON Welcome to Wallx Africa. Choose an option\n\n1. Wallet\n2. Thrift Savings\n3. Raise a fund\n4. Report an issue`;
+		const text = `CON Welcome to Wallx Africa. Choose an option\n\n1. Wallet\n2. Thrift Savings\n3. Raise A Fund\n4. Report An Issue`;
 
 		utils.sendResponse(res, text);
 	}
@@ -472,9 +472,14 @@ class Menu {
 					utils.terminateSession(req.body.sessionId);
 					return;
 				}
-				const campaign = apiResult.data.data[0];
+				// if (apiResult.data.length === 0) {
+				// 	utils.sendResponse(res, `END Campaign does not exist`);
+				// 	utils.terminateSession(req.body.sessionId);
+				// 	return;
+				// }
+				const campaign = apiResult.data[0];
 				if (!campaign) {
-					utils.sendResponse(res, `END Invalid campaign id`);
+					utils.sendResponse(res, `END Campaign does not exist`);
 					utils.terminateSession(req.body.sessionId);
 					return;
 				}
