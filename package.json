@@ -1,10 +1,10 @@
 {
-  "name": "africas-talking-test",
+  "name": "wallx-ussd",
   "version": "1.0.0",
   "description": "",
   "main": "app.js",
   "scripts": {
-    "start": "set NODE_ENV=production && nodemon app.js",
+    "start": "node app.js",
     "dev": "set NODE_ENV=development && nodemon app.js"
   },
   "author": "",
@@ -17,6 +17,7 @@
     "helmet": "^4.6.0",
     "joi": "^17.4.2",
     "mongoose": "^6.0.13",
+    "node-cache": "^5.1.2",
     "nodemon": "^2.0.14",
     "twilio": "^3.71.3",
     "uniqid": "^5.4.0",

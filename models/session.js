@@ -13,6 +13,7 @@ const sessionSchema = new Schema({
 	accessToken: String,
 	refreshToken: String,
 	userID: String,
+	accountName: String,
 	identityLogo: String,
 	loggedInPhone: String,
 });

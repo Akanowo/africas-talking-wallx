@@ -1,4 +1,5 @@
 const uniqid = require('uniqid');
+const axios = require('axios').default;
 const logger = require('./configs/logger');
 const Account = require('./models/account');
 const Session = require('./models/session');
@@ -15,7 +16,7 @@ class Menu {
 	}
 
 	authenticatedMenu(res) {
-		const text = `CON Welcome to Wallx Africa. Choose an option\n\n1. Wallet\n2. Thrift Savings\n3. Raise a fund\n4. Report an issue`;
+		const text = `CON Welcome to Wallx Africa. Choose an option\n\n1. Wallet\n2. Thrift Savings\n3. Raise A Fund\n4. Generate Paycode\n5. Report An Issue`;
 
 		utils.sendResponse(res, text);
 	}
@@ -23,7 +24,7 @@ class Menu {
 	async walletMenu(req, res, textArray) {
 		const count = textArray.length;
 		if (count === 1) {
-			const text = `CON Choose an option\n1. Create a Wallx Account\n2. Transfer to Wallx\n3. Transfer to Bank\n4. Buy Airtime\n5. Check Wallet Balance\n98. Go Back\n99. Go To Main Menu`;
+			const text = `CON Choose an option\n1. Create a Wallx Account\n2. Transfer to Wallx\n3. Transfer to Bank\n4. Buy Airtime\n5. Buy Data Bundle\n6. Check Wallet Balance\n98. Go Back\n99. Go To Main Menu`;
 			utils.sendResponse(res, text);
 		} else {
 			if (textArray[1] === '1') {
@@ -57,6 +58,8 @@ class Menu {
 				} else if (textArray[1] === '4') {
 					this.collectBuyAirtimeFields(req, res, textArray);
 				} else if (textArray[1] === '5') {
+					this.collectBuyDataFields(req, res, textArray);
+				} else if (textArray[1] === '6') {
 					this.checkWalletBalance(req, res, textArray);
 				} else {
 					utils.sendResponse(res, `END Invalid Choice`);
@@ -356,6 +359,170 @@ class Menu {
 		}
 	}
 
+	async collectBuyDataFields(req, res, textArray) {
+		const count = textArray.length;
+		if (count === 4) {
+			utils.sendResponse(
+				res,
+				`CON Select Provider\n1. MTN\n2. AIRTEL\n3. GLO\n4. 9MOBILE\n98. Go Back\n99. Go To Main Menu`
+			);
+		}
+
+		if (count === 5) {
+			const providers = ['BIL108', 'BIL110', 'BIL109', 'BIL111'];
+			const provider = providers[Number.parseInt(textArray[count - 1]) - 1];
+
+			const { userID } = req.authentication;
+
+			utils.cache.set(`${userID}_provider`, provider, 60);
+
+			let billData;
+			try {
+				billData = await axios.get(
+					'https://api.flutterwave.com/v3/bill-categories?data_bundle=1',
+					{
+						headers: {
+							Authorization: `Bearer ${process.env.FLUTTERWAVE_SECRET}`,
+						},
+					}
+				);
+			} catch (error) {
+				logger.error(JSON.stringify(error));
+				utils.sendResponse(res, `END Something went wrong, please try again`);
+			}
+
+			console.log('BILL DATA: ', billData.data);
+
+			if (billData.data.status !== 'success') {
+				utils.sendResponse(res, `END Something went wrong, please try again`);
+				return;
+			}
+
+			const merchantBillData = billData.data.data.filter(
+				(data) => data.biller_code === provider
+			);
+
+			console.log('Merchannt Bill Data: ', merchantBillData);
+
+			utils.cache.set(
+				`${userID}_data_plans`,
+				JSON.stringify(merchantBillData),
+				60
+			);
+
+			const billDetails = merchantBillData.map(
+				(bill, index) => `${index + 1}. ${bill.biller_name}`
+			);
+
+			utils.sendResponse(
+				res,
+				`CON ${billDetails.join('\n')}\n98. Go Back\n99. Go To Main Menu`
+			);
+		}
+
+		if (count === 6) {
+			utils.sendResponse(res, `CON Enter Phone Number`);
+		}
+
+		if (count === 7) {
+			const choice = Number.parseInt(textArray[count - 2]);
+			const { userID } = req.authentication;
+
+			if (choice === 0) {
+				utils.sendResponse(res, `END Invalid bundle plan`);
+				return utils.terminateSession(req.body.sessionId);
+			}
+
+			const json_plans = utils.cache.take(`${userID}_data_plans`);
+			const plans = JSON.parse(json_plans);
+			console.log('Plans: ', plans);
+
+			console.log('choice: ', choice);
+			const plan = plans[choice - 1];
+			utils.cache.set(`${userID}_data_plan`, JSON.stringify(plan), 60);
+			console.log(plan);
+			utils.sendResponse(
+				res,
+				`CON ${plan.biller_name}\nAmount: ${plan.amount}\nProceed?\n1. Yes\n2. No`
+			);
+		}
+
+		if (count === 8) {
+			if (Number.parseInt(textArray[count - 1]) !== 1) {
+				utils.sendResponse(res, `END Data purchase cancelled`);
+				return utils.terminateSession(req.body.sessionId);
+			}
+
+			const { userID } = req.authentication;
+
+			const json_plan = utils.cache.get(`${userID}_data_plan`);
+			const plan = JSON.parse(json_plan);
+
+			const data = {
+				country: 'NG',
+				customer: textArray[count - 2],
+				amount: plan.amount,
+				recurrence: 'ONCE',
+				biller_name: plan.biller_name,
+				reference: `rave-${uniqid()}`,
+				userID,
+				method: 'wallet',
+			};
+
+			console.log(data);
+
+			const response = await api.sendPostRequest(
+				data,
+				'/purchasebill/',
+				req.authentication
+			);
+			if (response.status) {
+				utils.sendResponse(res, `END ${response.message}`);
+				logger.info(response);
+				utils.terminateSession(req.body.sessionId);
+
+				// Get wallet balance
+				const walletBalance = await api.sendGetRequest(
+					`/customerwalletbalance/?userid=${req.authentication.userID}`,
+					req.authentication
+				);
+				if (walletBalance.status) {
+					// send sms
+					const sms = new SMS();
+					const smsText = `Wallx Debit\nNGN${
+						plan.amount
+					}\nDesc: DATA PURCHACE\nBalance:\nNGN: ${new Intl.NumberFormat(
+						'en-NG',
+						{ currency: 'NGN', style: 'currency' }
+					).format(walletBalance.data.NGN)}\nUSD: ${new Intl.NumberFormat(
+						'en-US',
+						{ currency: 'USD', style: 'currency' }
+					).format(walletBalance.data.USD)}`;
+					const smsResponse = await sms.send(
+						req.authentication.loggedInPhone,
+						smsText
+					);
+					if (smsResponse) {
+						logger.info(smsResponse);
+						console.log('message sent: ', smsResponse);
+					} else {
+						logger.error({
+							message: 'message sending failed',
+							error: smsResponse,
+						});
+					}
+				}
+			} else {
+				utils.sendResponse(
+					res,
+					`END ${response.message || response.detail || 'An error occured'}`
+				);
+				logger.info(response);
+				utils.terminateSession(req.body.sessionId);
+			}
+		}
+	}
+
 	async checkWalletBalance(req, res, textArray) {
 		const response = await api.sendGetRequest(
 			`/customerwalletbalance/?userid=${req.authentication.userID}`,
@@ -472,9 +639,14 @@ class Menu {
 					utils.terminateSession(req.body.sessionId);
 					return;
 				}
-				const campaign = apiResult.data.data[0];
+				// if (apiResult.data.length === 0) {
+				// 	utils.sendResponse(res, `END Campaign does not exist`);
+				// 	utils.terminateSession(req.body.sessionId);
+				// 	return;
+				// }
+				const campaign = apiResult.data[0];
 				if (!campaign) {
-					utils.sendResponse(res, `END Invalid campaign id`);
+					utils.sendResponse(res, `END Campaign does not exist`);
 					utils.terminateSession(req.body.sessionId);
 					return;
 				}
@@ -624,6 +796,85 @@ class Menu {
 
 			utils.sendResponse(res, `END Transaction successful`);
 			utils.terminateSession(req.body.sessionId);
+		}
+	}
+
+	async paycodeGenerationMenu(req, res, textArray) {
+		const count = textArray.length;
+
+		if (count === 1) {
+			return utils.sendResponse(res, `CON Enter amount`);
+		}
+
+		await this.loginMenu(textArray, req, res);
+		if (count === 4) {
+			return utils.sendResponse(res, `CON Enter Beneficiary Name`);
+		}
+
+		if (count === 5) {
+			return utils.sendResponse(res, `CON Enter Secret Word`);
+		}
+
+		if (count === 6) {
+			const session = await getSession(req);
+
+			if (!session) {
+				utils.sendResponse(res, `END Please try again`);
+				utils.terminateSession(req.body.sessionId);
+				return;
+			}
+
+			const payload = {
+				sender: session.accountName,
+				sender_id: session.userID,
+				merchant_id: '',
+				amount: Number.parseInt(textArray[count - 5]),
+				service_charge: 10,
+				beneficiary: textArray[count - 2],
+				description: textArray[count - 1],
+				currency: 'NGN',
+				transactionreference: `${uniqid()}`,
+			};
+
+			console.log(payload);
+
+			const response = await api.sendPostRequest(
+				payload,
+				'/agentransaction/',
+				session
+			);
+
+			if (!response.status) {
+				utils.sendResponse(
+					res,
+					`END ${response.message || response.detail || 'An error occured'}`
+				);
+				logger.info(response);
+				utils.terminateSession(req.body.sessionId);
+				return;
+			}
+
+			utils.sendResponse(res, `Paycode: ${response.data.pin}`);
+			utils.terminateSession(req.body.sessionId);
+
+			// send sms
+			const sms = new SMS();
+			const smsText = `Wallx Info\nDesc: Your paycode generation was successful. Use the pin: ${
+				response.data.pin
+			} at any nearby Wallx merchant to make a purchase of ${new Intl.NumberFormat(
+				'en-NG',
+				{ currency: 'NGN', style: 'currency' }
+			).format(response.data.amount)}`;
+			const smsResponse = await sms.send(session.phoneNumber, smsText);
+			if (smsResponse) {
+				logger.info(smsResponse);
+				console.log('message sent: ', smsResponse);
+			} else {
+				logger.error({
+					message: 'message sending failed',
+					error: smsResponse,
+				});
+			}
 		}
 	}
 
@@ -956,7 +1207,7 @@ class Menu {
 				username: textArray[2],
 				password: textArray[3],
 			};
-			const endpoint = `/merchant/?username=${data.username}&password=${data.password}&role=customer`;
+			const endpoint = `/merchant/?username=${data.username.trim()}&password=${data.password.trim()}&role=customer`;
 
 			const response = await api.sendGetRequest(endpoint, req.authentication);
 
@@ -968,6 +1219,7 @@ class Menu {
 					accessToken: response.token,
 					refreshToken: response.refresh,
 					userID: response.data.id,
+					accountName: response.data.businessname,
 					loggedInPhone: response.data.phonenumber.replace('0', '+234'),
 				});
 

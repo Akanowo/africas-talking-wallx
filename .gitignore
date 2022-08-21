@@ -10,3 +10,6 @@ deleteAll.js
 #logs
 combined.log
 error.log
+
+#locks
+package-lock.json

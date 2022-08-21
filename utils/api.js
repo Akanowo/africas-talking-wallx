@@ -1,3 +1,5 @@
+const https = require('https');
+
 const utils = require('../utils');
 const axios = require('axios').default;
 const logger = require('../configs/logger');
@@ -15,7 +17,10 @@ class API {
 	 */
 	async sendPostRequest(data, endpoint, auth) {
 		const url = `${this.BASE_URI}${endpoint}`;
-		let config = {};
+		const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+		let config = {
+			httpsAgent,
+		};
 
 		if (auth) {
 			config.headers = {
@@ -41,7 +46,10 @@ class API {
 
 	async sendGetRequest(endpoint, auth) {
 		const url = `${this.BASE_URI}/${endpoint}`;
-		const config = {};
+		const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+		let config = {
+			httpsAgent,
+		};
 
 		if (auth) {
 			config.headers = {
@@ -71,7 +79,7 @@ class API {
 		}/v1/verifications/identities/${type.toLowerCase()}/${number}`;
 		const config = {
 			headers: {
-				Authorization: `Bearer ${process.env.VERIFYME_TEST_SECRET}`,
+				Authorization: `Bearer ${process.env.VERIFYME_LIVE_SECRET}`,
 			},
 		};
 		let response;

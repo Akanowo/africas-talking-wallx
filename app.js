@@ -65,6 +65,9 @@ app.post(
 						menu.raiseAFundMenu(req, res, textSplit);
 						break;
 					case '4':
+						menu.paycodeGenerationMenu(req, res, textSplit);
+						break;
+					case '5':
 						menu.reportIssueMeu(req, res, textSplit);
 						break;
 					default:
