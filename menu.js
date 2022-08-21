@@ -854,7 +854,7 @@ class Menu {
 				return;
 			}
 
-			utils.sendResponse(res, `Paycode: ${response.data.pin}`);
+			utils.sendResponse(res, `END Paycode: ${response.data.pin}`);
 			utils.terminateSession(req.body.sessionId);
 
 			// send sms
